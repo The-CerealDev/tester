@@ -132,7 +132,8 @@ html, body { margin:0; padding:0; width:100%; height:100%; background:var(--bg);
       <li>Ring geometry, element order and K-values are taken from <code>Dev/Lattice_Files/00_Simplified_Lattice/ISIS.{elements,sequence,strength}</code> — real ISIS RCS values, 163.36282&nbsp;m circumference, 10 superperiods.</li>
       <li>Physics constants and conversion formulas are ported verbatim from <code>Dev/01_Cycle_Time/cycle_time.py</code> and <code>Dev/02_Machine_State/{tune_control,correctors,machine_state,machine_state_defaults}.py</code>.</li>
       <li>The one-turn transfer-matrix / Twiss engine, closed-orbit Green's function, and betatron-wobble animation are this simulation's own equivalent of what MAD-X/cpymad would report — the real repo has no portable pure-Python formula for "actual tune" or orbit correction (both are MAD-X-only), so "Qx/Qy (simulated)" will not exactly match the Di-Wright-requested tune. That mismatch is physically realistic — it mirrors the real system.</li>
-      <li>Each real quadrupole (9 slices: 8 fringe + 1 core) is collapsed to one effective thick quad using only the core K-value.</li>
+      <li>Each real quadrupole is modelled as its full real 9-slice chain (8 fringe segments + 1 core, each with its own real K-value and length from <code>ISIS.strength</code>) rather than one collapsed effective thick quad — collapsing the fringes into a single core-only lens made the horizontal one-turn matrix unconditionally unstable (trace in the millions), which silently froze "Qx/Qy (simulated)" at an integer for every setting. The full real chain is stable.</li>
+      <li>At the default zero-trim ("bare") setting the vertical beta function swings to roughly 100&nbsp;m at some QD/QDS locations — verified self-consistent (the Courant-Snyder invariant β·γ−α²=1 holds to ~1e-12 everywhere) rather than a numerical bug, but it reflects an unmatched bare lattice: real operation would additionally re-tune the main QD/QF/QDS family gradients (MAD-X's MATCH), not just the weak trim quads, to flatten this — that matching procedure isn't implemented here.</li>
       <li>The RF cavity marker follows the PDF's single-period schematic (page 27) but does not exist in ISIS.elements/ISIS.sequence — schematic only.</li>
       <li>The superperiod-9 sextupole is real (k2=0 in source) but shown as a static visual element — no portable nonlinear formula exists to animate it.</li>
       <li>Aperture margin uses an illustrative ±40&nbsp;mm placeholder half-width, not a repo-sourced value (real aperture data lives in an external CSV, not a portable default).</li>
@@ -195,7 +196,6 @@ const DEFAULT_DP_OVER_P = 0.002;
 
 const RING_CIRCUMFERENCE_M = 163.36282;
 const N_SUPERPERIODS = 10;
-const CELL_LENGTH_M = 16.336282;
 
 const SPEED_OF_LIGHT_M_S = 299792458.0;
 
@@ -339,22 +339,513 @@ function kickRadToCurrent(name, kickRad, beamState) {
 
 <script>
 // ===================== SECTION D: Lattice model (Dev/Lattice_Files/00_Simplified_Lattice/ISIS.{elements,sequence,strength}) =====================
-const DIPOLE_LENGTH_M = 3.92;
-const DIPOLE_ANGLE_RAD = 0.559776;
-const DIPOLE_K1_BASE = 0.06782332; // combined-function dipole, * main_dipole_scale (verified ISIS.strength:38)
-
-const QD_K1_BASE = -0.63633192;   // * qd_scale (defocusing)
-const QD_EFFECTIVE_LENGTH_M = 0.9412; // fringe+core collapsed to one effective thick quad
-const QF_K1_BASE = 0.63663711;    // * qf_scale (focusing)
-const QF_EFFECTIVE_LENGTH_M = 0.9262;
-const QDS_K1_BASE = -0.72731997;  // * qds_scale (defocusing)
-const QDS_EFFECTIVE_LENGTH_M = 0.5474;
-
-const TRIM_QUAD_LENGTH_M = 0.307;
-const LONG_DRIFT_LENGTH_M = 5.2445;
-const KICKER_LENGTH_M = 0.001;
-const SEXTUPOLE_LENGTH_M = 0.236;
-const RF_MARKER_LENGTH_M = 0.05; // schematic only — not present in ISIS.elements/ISIS.sequence
+// REAL_LATTICE_TEMPLATE is the full real element chain for one ring (all 10
+// superperiods), parsed directly from the authoritative MAD-X source files -
+// every dipole/quad fringe segment, real drift length, and corrector/sextupole
+// position, not a collapsed/guessed approximation. (A prior simplified version
+// of this file collapsed each quad's fringe multipoles into one "effective"
+// thick lens and guessed the drift split between magnets; that produced a
+// one-turn matrix with |trace| in the millions - unconditionally unstable, so
+// the "simulated" tune was frozen at an integer for every setting. The real
+// fringe segments carry focusing strength comparable to the quad cores, so
+// they can't be dropped. This table restores them and is stable.)
+const REAL_LATTICE_TEMPLATE = [
+  {type:"dipole",sp:0,length:0.16,k1Base:0.01101772,scaleKey:"fringe_dipole_scale",angle:0.007026},
+  {type:"dipole",sp:0,length:0.2,k1Base:-0.00081196,scaleKey:"fringe_dipole_neg_scale",angle:0.001126},
+  {type:"dipole",sp:0,length:0.03,k1Base:-0.00106696,scaleKey:"fringe_dipole_neg_scale",angle:0.000097},
+  {type:"drift",sp:0,length:0.134},
+  {type:"corrector_h",sp:0,length:0.001},
+  {type:"drift",sp:0,length:1.8989999999999998},
+  {type:"corrector_v",sp:0,length:0.001},
+  {type:"drift",sp:0,length:0.5144000000000002},
+  {type:"quad_defocus",sp:0,length:0.05275,k1Base:-0.07954129,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:0,length:0.05275,k1Base:-0.23862467,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:0,length:0.05275,k1Base:-0.39770806,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:0,length:0.05275,k1Base:-0.55679063,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:0,length:0.5192,k1Base:-0.63633192,scaleKey:"qd_scale"},
+  {type:"quad_defocus",sp:0,length:0.05275,k1Base:-0.55679063,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:0,length:0.05275,k1Base:-0.39770806,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:0,length:0.05275,k1Base:-0.23862467,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:0,length:0.05275,k1Base:-0.07954129,scaleKey:"qdfr_scale"},
+  {type:"drift",sp:0,length:0.09764999999999979},
+  {type:"trimquad_defocus",sp:0,length:0.307},
+  {type:"drift",sp:0,length:0.09765000000000068},
+  {type:"quad_focus",sp:0,length:0.05275,k1Base:0.07957934,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:0,length:0.05275,k1Base:0.23873962,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:0,length:0.05275,k1Base:0.3978991,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:0,length:0.05275,k1Base:0.55705778,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:0,length:0.5042,k1Base:0.63663711,scaleKey:"qf_scale"},
+  {type:"quad_focus",sp:0,length:0.05275,k1Base:0.55705778,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:0,length:0.05275,k1Base:0.3978991,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:0,length:0.05275,k1Base:0.23873962,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:0,length:0.05275,k1Base:0.07957934,scaleKey:"qffr_scale"},
+  {type:"drift",sp:0,length:0.09669999999999934},
+  {type:"trimquad_focus",sp:0,length:0.307},
+  {type:"rf",sp:0,length:0.05},
+  {type:"drift",sp:0,length:5.194500000000001},
+  {type:"quad_defocus",sp:0,length:0.03875,k1Base:-0.0909152,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:0,length:0.03875,k1Base:-0.27274479,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:0,length:0.03875,k1Base:-0.45457519,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:0,length:0.03875,k1Base:-0.63640478,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:0,length:0.2474,k1Base:-0.72731997,scaleKey:"qds_scale"},
+  {type:"quad_defocus",sp:0,length:0.03875,k1Base:-0.63640478,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:0,length:0.03875,k1Base:-0.45457519,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:0,length:0.03875,k1Base:-0.27274479,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:0,length:0.03875,k1Base:-0.0909152,scaleKey:"qdsfr_scale"},
+  {type:"drift",sp:0,length:0.031582000000002},
+  {type:"dipole",sp:0,length:0.03,k1Base:-0.00106696,scaleKey:"fringe_dipole_neg_scale",angle:0.000097},
+  {type:"dipole",sp:0,length:0.2,k1Base:-0.00081196,scaleKey:"fringe_dipole_neg_scale",angle:0.001126},
+  {type:"dipole",sp:0,length:0.16,k1Base:0.01101772,scaleKey:"fringe_dipole_scale",angle:0.007026},
+  {type:"dipole",sp:0,length:0.04,k1Base:0.01101772,scaleKey:"fringe_dipole_scale",angle:0.001757},
+  {type:"dipole",sp:0,length:0.2,k1Base:0.07106712,scaleKey:"fringe_dipole_scale",angle:0.024266},
+  {type:"dipole",sp:0,length:3.92,k1Base:0.06782332,scaleKey:"main_dipole_scale",angle:0.559776},
+  {type:"dipole",sp:0,length:0.2,k1Base:0.07106712,scaleKey:"fringe_dipole_scale",angle:0.024266},
+  {type:"dipole",sp:0,length:0.04,k1Base:0.01101772,scaleKey:"fringe_dipole_scale",angle:0.001757},
+  {type:"dipole",sp:1,length:0.16,k1Base:0.01101772,scaleKey:"fringe_dipole_scale",angle:0.007026},
+  {type:"dipole",sp:1,length:0.2,k1Base:-0.00081196,scaleKey:"fringe_dipole_neg_scale",angle:0.001126},
+  {type:"dipole",sp:1,length:0.03,k1Base:-0.00106696,scaleKey:"fringe_dipole_neg_scale",angle:0.000097},
+  {type:"drift",sp:1,length:2.5493999999999986},
+  {type:"quad_defocus",sp:1,length:0.05275,k1Base:-0.07954129,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:1,length:0.05275,k1Base:-0.23862467,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:1,length:0.05275,k1Base:-0.39770806,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:1,length:0.05275,k1Base:-0.55679063,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:1,length:0.5192,k1Base:-0.63633192,scaleKey:"qd_scale"},
+  {type:"quad_defocus",sp:1,length:0.05275,k1Base:-0.55679063,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:1,length:0.05275,k1Base:-0.39770806,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:1,length:0.05275,k1Base:-0.23862467,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:1,length:0.05275,k1Base:-0.07954129,scaleKey:"qdfr_scale"},
+  {type:"drift",sp:1,length:0.09765000000000157},
+  {type:"trimquad_defocus",sp:1,length:0.307},
+  {type:"drift",sp:1,length:0.09764999999999802},
+  {type:"quad_focus",sp:1,length:0.05275,k1Base:0.07957934,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:1,length:0.05275,k1Base:0.23873962,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:1,length:0.05275,k1Base:0.3978991,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:1,length:0.05275,k1Base:0.55705778,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:1,length:0.5042,k1Base:0.63663711,scaleKey:"qf_scale"},
+  {type:"quad_focus",sp:1,length:0.05275,k1Base:0.55705778,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:1,length:0.05275,k1Base:0.3978991,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:1,length:0.05275,k1Base:0.23873962,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:1,length:0.05275,k1Base:0.07957934,scaleKey:"qffr_scale"},
+  {type:"drift",sp:1,length:0.09669999999999845},
+  {type:"trimquad_focus",sp:1,length:0.307},
+  {type:"rf",sp:1,length:0.05},
+  {type:"drift",sp:1,length:5.194499999999997},
+  {type:"quad_defocus",sp:1,length:0.03875,k1Base:-0.0909152,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:1,length:0.03875,k1Base:-0.27274479,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:1,length:0.03875,k1Base:-0.45457519,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:1,length:0.03875,k1Base:-0.63640478,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:1,length:0.2474,k1Base:-0.72731997,scaleKey:"qds_scale"},
+  {type:"quad_defocus",sp:1,length:0.03875,k1Base:-0.63640478,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:1,length:0.03875,k1Base:-0.45457519,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:1,length:0.03875,k1Base:-0.27274479,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:1,length:0.03875,k1Base:-0.0909152,scaleKey:"qdsfr_scale"},
+  {type:"drift",sp:1,length:0.03158200000000022},
+  {type:"dipole",sp:1,length:0.03,k1Base:-0.00106696,scaleKey:"fringe_dipole_neg_scale",angle:0.000097},
+  {type:"dipole",sp:1,length:0.2,k1Base:-0.00081196,scaleKey:"fringe_dipole_neg_scale",angle:0.001126},
+  {type:"dipole",sp:1,length:0.16,k1Base:0.01101772,scaleKey:"fringe_dipole_scale",angle:0.007026},
+  {type:"dipole",sp:1,length:0.04,k1Base:0.01101772,scaleKey:"fringe_dipole_scale",angle:0.001757},
+  {type:"dipole",sp:1,length:0.2,k1Base:0.07106712,scaleKey:"fringe_dipole_scale",angle:0.024266},
+  {type:"dipole",sp:1,length:3.92,k1Base:0.06782332,scaleKey:"main_dipole_scale",angle:0.559776},
+  {type:"dipole",sp:1,length:0.2,k1Base:0.07106712,scaleKey:"fringe_dipole_scale",angle:0.024266},
+  {type:"dipole",sp:1,length:0.04,k1Base:0.01101772,scaleKey:"fringe_dipole_scale",angle:0.001757},
+  {type:"dipole",sp:2,length:0.16,k1Base:0.01101772,scaleKey:"fringe_dipole_scale",angle:0.007026},
+  {type:"dipole",sp:2,length:0.2,k1Base:-0.00081196,scaleKey:"fringe_dipole_neg_scale",angle:0.001126},
+  {type:"dipole",sp:2,length:0.03,k1Base:-0.00106696,scaleKey:"fringe_dipole_neg_scale",angle:0.000097},
+  {type:"drift",sp:2,length:2.0340000000000034},
+  {type:"corrector_v",sp:2,length:0.001},
+  {type:"drift",sp:2,length:0.514400000000002},
+  {type:"quad_defocus",sp:2,length:0.05275,k1Base:-0.07954129,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:2,length:0.05275,k1Base:-0.23862467,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:2,length:0.05275,k1Base:-0.39770806,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:2,length:0.05275,k1Base:-0.55679063,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:2,length:0.5192,k1Base:-0.63633192,scaleKey:"qd_scale"},
+  {type:"quad_defocus",sp:2,length:0.05275,k1Base:-0.55679063,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:2,length:0.05275,k1Base:-0.39770806,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:2,length:0.05275,k1Base:-0.23862467,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:2,length:0.05275,k1Base:-0.07954129,scaleKey:"qdfr_scale"},
+  {type:"drift",sp:2,length:0.09764999999999446},
+  {type:"trimquad_defocus",sp:2,length:0.307},
+  {type:"drift",sp:2,length:0.09765000000000157},
+  {type:"quad_focus",sp:2,length:0.05275,k1Base:0.07957934,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:2,length:0.05275,k1Base:0.23873962,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:2,length:0.05275,k1Base:0.3978991,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:2,length:0.05275,k1Base:0.55705778,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:2,length:0.5042,k1Base:0.63663711,scaleKey:"qf_scale"},
+  {type:"quad_focus",sp:2,length:0.05275,k1Base:0.55705778,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:2,length:0.05275,k1Base:0.3978991,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:2,length:0.05275,k1Base:0.23873962,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:2,length:0.05275,k1Base:0.07957934,scaleKey:"qffr_scale"},
+  {type:"drift",sp:2,length:0.09669999999999845},
+  {type:"trimquad_focus",sp:2,length:0.307},
+  {type:"drift",sp:2,length:0.4642000000000005},
+  {type:"corrector_h",sp:2,length:0.001},
+  {type:"drift",sp:2,length:4.779300000000009},
+  {type:"quad_defocus",sp:2,length:0.03875,k1Base:-0.0909152,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:2,length:0.03875,k1Base:-0.27274479,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:2,length:0.03875,k1Base:-0.45457519,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:2,length:0.03875,k1Base:-0.63640478,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:2,length:0.2474,k1Base:-0.72731997,scaleKey:"qds_scale"},
+  {type:"quad_defocus",sp:2,length:0.03875,k1Base:-0.63640478,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:2,length:0.03875,k1Base:-0.45457519,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:2,length:0.03875,k1Base:-0.27274479,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:2,length:0.03875,k1Base:-0.0909152,scaleKey:"qdsfr_scale"},
+  {type:"drift",sp:2,length:0.03158200000000022},
+  {type:"dipole",sp:2,length:0.03,k1Base:-0.00106696,scaleKey:"fringe_dipole_neg_scale",angle:0.000097},
+  {type:"dipole",sp:2,length:0.2,k1Base:-0.00081196,scaleKey:"fringe_dipole_neg_scale",angle:0.001126},
+  {type:"dipole",sp:2,length:0.16,k1Base:0.01101772,scaleKey:"fringe_dipole_scale",angle:0.007026},
+  {type:"dipole",sp:2,length:0.04,k1Base:0.01101772,scaleKey:"fringe_dipole_scale",angle:0.001757},
+  {type:"dipole",sp:2,length:0.2,k1Base:0.07106712,scaleKey:"fringe_dipole_scale",angle:0.024266},
+  {type:"dipole",sp:2,length:3.92,k1Base:0.06782332,scaleKey:"main_dipole_scale",angle:0.559776},
+  {type:"dipole",sp:2,length:0.2,k1Base:0.07106712,scaleKey:"fringe_dipole_scale",angle:0.024266},
+  {type:"dipole",sp:2,length:0.04,k1Base:0.01101772,scaleKey:"fringe_dipole_scale",angle:0.001757},
+  {type:"dipole",sp:3,length:0.16,k1Base:0.01101772,scaleKey:"fringe_dipole_scale",angle:0.007026},
+  {type:"dipole",sp:3,length:0.2,k1Base:-0.00081196,scaleKey:"fringe_dipole_neg_scale",angle:0.001126},
+  {type:"dipole",sp:3,length:0.03,k1Base:-0.00106696,scaleKey:"fringe_dipole_neg_scale",angle:0.000097},
+  {type:"drift",sp:3,length:1.5062500000000036},
+  {type:"corrector_v",sp:3,length:0.001},
+  {type:"drift",sp:3,length:1.0421500000000017},
+  {type:"quad_defocus",sp:3,length:0.05275,k1Base:-0.07954129,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:3,length:0.05275,k1Base:-0.23862467,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:3,length:0.05275,k1Base:-0.39770806,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:3,length:0.05275,k1Base:-0.55679063,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:3,length:0.5192,k1Base:-0.63633192,scaleKey:"qd_scale"},
+  {type:"quad_defocus",sp:3,length:0.05275,k1Base:-0.55679063,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:3,length:0.05275,k1Base:-0.39770806,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:3,length:0.05275,k1Base:-0.23862467,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:3,length:0.05275,k1Base:-0.07954129,scaleKey:"qdfr_scale"},
+  {type:"drift",sp:3,length:0.09764999999999446},
+  {type:"trimquad_defocus",sp:3,length:0.307},
+  {type:"drift",sp:3,length:0.09765000000000157},
+  {type:"quad_focus",sp:3,length:0.05275,k1Base:0.07957934,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:3,length:0.05275,k1Base:0.23873962,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:3,length:0.05275,k1Base:0.3978991,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:3,length:0.05275,k1Base:0.55705778,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:3,length:0.5042,k1Base:0.63663711,scaleKey:"qf_scale"},
+  {type:"quad_focus",sp:3,length:0.05275,k1Base:0.55705778,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:3,length:0.05275,k1Base:0.3978991,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:3,length:0.05275,k1Base:0.23873962,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:3,length:0.05275,k1Base:0.07957934,scaleKey:"qffr_scale"},
+  {type:"drift",sp:3,length:0.09669999999999845},
+  {type:"trimquad_focus",sp:3,length:0.307},
+  {type:"drift",sp:3,length:0.4642000000000005},
+  {type:"corrector_h",sp:3,length:0.001},
+  {type:"drift",sp:3,length:4.779300000000002},
+  {type:"quad_defocus",sp:3,length:0.03875,k1Base:-0.0909152,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:3,length:0.03875,k1Base:-0.27274479,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:3,length:0.03875,k1Base:-0.45457519,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:3,length:0.03875,k1Base:-0.63640478,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:3,length:0.2474,k1Base:-0.72731997,scaleKey:"qds_scale"},
+  {type:"quad_defocus",sp:3,length:0.03875,k1Base:-0.63640478,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:3,length:0.03875,k1Base:-0.45457519,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:3,length:0.03875,k1Base:-0.27274479,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:3,length:0.03875,k1Base:-0.0909152,scaleKey:"qdsfr_scale"},
+  {type:"drift",sp:3,length:0.03158200000000022},
+  {type:"dipole",sp:3,length:0.03,k1Base:-0.00106696,scaleKey:"fringe_dipole_neg_scale",angle:0.000097},
+  {type:"dipole",sp:3,length:0.2,k1Base:-0.00081196,scaleKey:"fringe_dipole_neg_scale",angle:0.001126},
+  {type:"dipole",sp:3,length:0.16,k1Base:0.01101772,scaleKey:"fringe_dipole_scale",angle:0.007026},
+  {type:"dipole",sp:3,length:0.04,k1Base:0.01101772,scaleKey:"fringe_dipole_scale",angle:0.001757},
+  {type:"dipole",sp:3,length:0.2,k1Base:0.07106712,scaleKey:"fringe_dipole_scale",angle:0.024266},
+  {type:"dipole",sp:3,length:3.92,k1Base:0.06782332,scaleKey:"main_dipole_scale",angle:0.559776},
+  {type:"dipole",sp:3,length:0.2,k1Base:0.07106712,scaleKey:"fringe_dipole_scale",angle:0.024266},
+  {type:"dipole",sp:3,length:0.04,k1Base:0.01101772,scaleKey:"fringe_dipole_scale",angle:0.001757},
+  {type:"dipole",sp:4,length:0.16,k1Base:0.01101772,scaleKey:"fringe_dipole_scale",angle:0.007026},
+  {type:"dipole",sp:4,length:0.2,k1Base:-0.00081196,scaleKey:"fringe_dipole_neg_scale",angle:0.001126},
+  {type:"dipole",sp:4,length:0.03,k1Base:-0.00106696,scaleKey:"fringe_dipole_neg_scale",angle:0.000097},
+  {type:"drift",sp:4,length:2.5493999999999866},
+  {type:"quad_defocus",sp:4,length:0.05275,k1Base:-0.07954129,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:4,length:0.05275,k1Base:-0.23862467,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:4,length:0.05275,k1Base:-0.39770806,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:4,length:0.05275,k1Base:-0.55679063,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:4,length:0.5192,k1Base:-0.63633192,scaleKey:"qd_scale"},
+  {type:"quad_defocus",sp:4,length:0.05275,k1Base:-0.55679063,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:4,length:0.05275,k1Base:-0.39770806,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:4,length:0.05275,k1Base:-0.23862467,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:4,length:0.05275,k1Base:-0.07954129,scaleKey:"qdfr_scale"},
+  {type:"drift",sp:4,length:0.09765000000000157},
+  {type:"trimquad_defocus",sp:4,length:0.307},
+  {type:"drift",sp:4,length:0.09764999999998736},
+  {type:"quad_focus",sp:4,length:0.05275,k1Base:0.07957934,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:4,length:0.05275,k1Base:0.23873962,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:4,length:0.05275,k1Base:0.3978991,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:4,length:0.05275,k1Base:0.55705778,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:4,length:0.5042,k1Base:0.63663711,scaleKey:"qf_scale"},
+  {type:"quad_focus",sp:4,length:0.05275,k1Base:0.55705778,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:4,length:0.05275,k1Base:0.3978991,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:4,length:0.05275,k1Base:0.23873962,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:4,length:0.05275,k1Base:0.07957934,scaleKey:"qffr_scale"},
+  {type:"drift",sp:4,length:0.09669999999999845},
+  {type:"trimquad_focus",sp:4,length:0.307},
+  {type:"drift",sp:4,length:0.4641999999999863},
+  {type:"corrector_h",sp:4,length:0.001},
+  {type:"drift",sp:4,length:4.2825500000000005},
+  {type:"corrector_v",sp:4,length:0.001},
+  {type:"drift",sp:4,length:0.49574999999999625},
+  {type:"quad_defocus",sp:4,length:0.03875,k1Base:-0.0909152,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:4,length:0.03875,k1Base:-0.27274479,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:4,length:0.03875,k1Base:-0.45457519,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:4,length:0.03875,k1Base:-0.63640478,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:4,length:0.2474,k1Base:-0.72731997,scaleKey:"qds_scale"},
+  {type:"quad_defocus",sp:4,length:0.03875,k1Base:-0.63640478,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:4,length:0.03875,k1Base:-0.45457519,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:4,length:0.03875,k1Base:-0.27274479,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:4,length:0.03875,k1Base:-0.0909152,scaleKey:"qdsfr_scale"},
+  {type:"drift",sp:4,length:0.03158200000000022},
+  {type:"dipole",sp:4,length:0.03,k1Base:-0.00106696,scaleKey:"fringe_dipole_neg_scale",angle:0.000097},
+  {type:"dipole",sp:4,length:0.2,k1Base:-0.00081196,scaleKey:"fringe_dipole_neg_scale",angle:0.001126},
+  {type:"dipole",sp:4,length:0.16,k1Base:0.01101772,scaleKey:"fringe_dipole_scale",angle:0.007026},
+  {type:"dipole",sp:4,length:0.04,k1Base:0.01101772,scaleKey:"fringe_dipole_scale",angle:0.001757},
+  {type:"dipole",sp:4,length:0.2,k1Base:0.07106712,scaleKey:"fringe_dipole_scale",angle:0.024266},
+  {type:"dipole",sp:4,length:3.92,k1Base:0.06782332,scaleKey:"main_dipole_scale",angle:0.559776},
+  {type:"dipole",sp:4,length:0.2,k1Base:0.07106712,scaleKey:"fringe_dipole_scale",angle:0.024266},
+  {type:"dipole",sp:4,length:0.04,k1Base:0.01101772,scaleKey:"fringe_dipole_scale",angle:0.001757},
+  {type:"dipole",sp:5,length:0.16,k1Base:0.01101772,scaleKey:"fringe_dipole_scale",angle:0.007026},
+  {type:"dipole",sp:5,length:0.2,k1Base:-0.00081196,scaleKey:"fringe_dipole_neg_scale",angle:0.001126},
+  {type:"dipole",sp:5,length:0.03,k1Base:-0.00106696,scaleKey:"fringe_dipole_neg_scale",angle:0.000097},
+  {type:"drift",sp:5,length:0.13400000000000034},
+  {type:"corrector_h",sp:5,length:0.001},
+  {type:"drift",sp:5,length:1.8989999999999818},
+  {type:"corrector_v",sp:5,length:0.001},
+  {type:"drift",sp:5,length:0.5143999999999949},
+  {type:"quad_defocus",sp:5,length:0.05275,k1Base:-0.07954129,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:5,length:0.05275,k1Base:-0.23862467,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:5,length:0.05275,k1Base:-0.39770806,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:5,length:0.05275,k1Base:-0.55679063,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:5,length:0.5192,k1Base:-0.63633192,scaleKey:"qd_scale"},
+  {type:"quad_defocus",sp:5,length:0.05275,k1Base:-0.55679063,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:5,length:0.05275,k1Base:-0.39770806,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:5,length:0.05275,k1Base:-0.23862467,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:5,length:0.05275,k1Base:-0.07954129,scaleKey:"qdfr_scale"},
+  {type:"drift",sp:5,length:0.09765000000000157},
+  {type:"trimquad_defocus",sp:5,length:0.307},
+  {type:"drift",sp:5,length:0.09764999999998736},
+  {type:"quad_focus",sp:5,length:0.05275,k1Base:0.07957934,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:5,length:0.05275,k1Base:0.23873962,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:5,length:0.05275,k1Base:0.3978991,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:5,length:0.05275,k1Base:0.55705778,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:5,length:0.5042,k1Base:0.63663711,scaleKey:"qf_scale"},
+  {type:"quad_focus",sp:5,length:0.05275,k1Base:0.55705778,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:5,length:0.05275,k1Base:0.3978991,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:5,length:0.05275,k1Base:0.23873962,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:5,length:0.05275,k1Base:0.07957934,scaleKey:"qffr_scale"},
+  {type:"drift",sp:5,length:0.09669999999999845},
+  {type:"trimquad_focus",sp:5,length:0.307},
+  {type:"rf",sp:5,length:0.05},
+  {type:"drift",sp:5,length:5.1944999999999935},
+  {type:"quad_defocus",sp:5,length:0.03875,k1Base:-0.0909152,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:5,length:0.03875,k1Base:-0.27274479,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:5,length:0.03875,k1Base:-0.45457519,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:5,length:0.03875,k1Base:-0.63640478,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:5,length:0.2474,k1Base:-0.72731997,scaleKey:"qds_scale"},
+  {type:"quad_defocus",sp:5,length:0.03875,k1Base:-0.63640478,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:5,length:0.03875,k1Base:-0.45457519,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:5,length:0.03875,k1Base:-0.27274479,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:5,length:0.03875,k1Base:-0.0909152,scaleKey:"qdsfr_scale"},
+  {type:"drift",sp:5,length:0.03158200000000022},
+  {type:"dipole",sp:5,length:0.03,k1Base:-0.00106696,scaleKey:"fringe_dipole_neg_scale",angle:0.000097},
+  {type:"dipole",sp:5,length:0.2,k1Base:-0.00081196,scaleKey:"fringe_dipole_neg_scale",angle:0.001126},
+  {type:"dipole",sp:5,length:0.16,k1Base:0.01101772,scaleKey:"fringe_dipole_scale",angle:0.007026},
+  {type:"dipole",sp:5,length:0.04,k1Base:0.01101772,scaleKey:"fringe_dipole_scale",angle:0.001757},
+  {type:"dipole",sp:5,length:0.2,k1Base:0.07106712,scaleKey:"fringe_dipole_scale",angle:0.024266},
+  {type:"dipole",sp:5,length:3.92,k1Base:0.06782332,scaleKey:"main_dipole_scale",angle:0.559776},
+  {type:"dipole",sp:5,length:0.2,k1Base:0.07106712,scaleKey:"fringe_dipole_scale",angle:0.024266},
+  {type:"dipole",sp:5,length:0.04,k1Base:0.01101772,scaleKey:"fringe_dipole_scale",angle:0.001757},
+  {type:"dipole",sp:6,length:0.16,k1Base:0.01101772,scaleKey:"fringe_dipole_scale",angle:0.007026},
+  {type:"dipole",sp:6,length:0.2,k1Base:-0.00081196,scaleKey:"fringe_dipole_neg_scale",angle:0.001126},
+  {type:"dipole",sp:6,length:0.03,k1Base:-0.00106696,scaleKey:"fringe_dipole_neg_scale",angle:0.000097},
+  {type:"drift",sp:6,length:2.5493999999999817},
+  {type:"quad_defocus",sp:6,length:0.05275,k1Base:-0.07954129,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:6,length:0.05275,k1Base:-0.23862467,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:6,length:0.05275,k1Base:-0.39770806,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:6,length:0.05275,k1Base:-0.55679063,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:6,length:0.5192,k1Base:-0.63633192,scaleKey:"qd_scale"},
+  {type:"quad_defocus",sp:6,length:0.05275,k1Base:-0.55679063,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:6,length:0.05275,k1Base:-0.39770806,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:6,length:0.05275,k1Base:-0.23862467,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:6,length:0.05275,k1Base:-0.07954129,scaleKey:"qdfr_scale"},
+  {type:"drift",sp:6,length:0.09765000000000157},
+  {type:"trimquad_defocus",sp:6,length:0.307},
+  {type:"drift",sp:6,length:0.09764999999998736},
+  {type:"quad_focus",sp:6,length:0.05275,k1Base:0.07957934,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:6,length:0.05275,k1Base:0.23873962,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:6,length:0.05275,k1Base:0.3978991,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:6,length:0.05275,k1Base:0.55705778,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:6,length:0.5042,k1Base:0.63663711,scaleKey:"qf_scale"},
+  {type:"quad_focus",sp:6,length:0.05275,k1Base:0.55705778,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:6,length:0.05275,k1Base:0.3978991,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:6,length:0.05275,k1Base:0.23873962,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:6,length:0.05275,k1Base:0.07957934,scaleKey:"qffr_scale"},
+  {type:"drift",sp:6,length:0.09669999999999845},
+  {type:"trimquad_focus",sp:6,length:0.307},
+  {type:"rf",sp:6,length:0.05},
+  {type:"drift",sp:6,length:5.194499999999988},
+  {type:"quad_defocus",sp:6,length:0.03875,k1Base:-0.0909152,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:6,length:0.03875,k1Base:-0.27274479,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:6,length:0.03875,k1Base:-0.45457519,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:6,length:0.03875,k1Base:-0.63640478,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:6,length:0.2474,k1Base:-0.72731997,scaleKey:"qds_scale"},
+  {type:"quad_defocus",sp:6,length:0.03875,k1Base:-0.63640478,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:6,length:0.03875,k1Base:-0.45457519,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:6,length:0.03875,k1Base:-0.27274479,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:6,length:0.03875,k1Base:-0.0909152,scaleKey:"qdsfr_scale"},
+  {type:"drift",sp:6,length:0.03158200000000022},
+  {type:"dipole",sp:6,length:0.03,k1Base:-0.00106696,scaleKey:"fringe_dipole_neg_scale",angle:0.000097},
+  {type:"dipole",sp:6,length:0.2,k1Base:-0.00081196,scaleKey:"fringe_dipole_neg_scale",angle:0.001126},
+  {type:"dipole",sp:6,length:0.16,k1Base:0.01101772,scaleKey:"fringe_dipole_scale",angle:0.007026},
+  {type:"dipole",sp:6,length:0.04,k1Base:0.01101772,scaleKey:"fringe_dipole_scale",angle:0.001757},
+  {type:"dipole",sp:6,length:0.2,k1Base:0.07106712,scaleKey:"fringe_dipole_scale",angle:0.024266},
+  {type:"dipole",sp:6,length:3.92,k1Base:0.06782332,scaleKey:"main_dipole_scale",angle:0.559776},
+  {type:"dipole",sp:6,length:0.2,k1Base:0.07106712,scaleKey:"fringe_dipole_scale",angle:0.024266},
+  {type:"dipole",sp:6,length:0.04,k1Base:0.01101772,scaleKey:"fringe_dipole_scale",angle:0.001757},
+  {type:"dipole",sp:7,length:0.16,k1Base:0.01101772,scaleKey:"fringe_dipole_scale",angle:0.007026},
+  {type:"dipole",sp:7,length:0.2,k1Base:-0.00081196,scaleKey:"fringe_dipole_neg_scale",angle:0.001126},
+  {type:"dipole",sp:7,length:0.03,k1Base:-0.00106696,scaleKey:"fringe_dipole_neg_scale",angle:0.000097},
+  {type:"drift",sp:7,length:2.033999999999982},
+  {type:"corrector_v",sp:7,length:0.001},
+  {type:"drift",sp:7,length:0.5143999999999949},
+  {type:"quad_defocus",sp:7,length:0.05275,k1Base:-0.07954129,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:7,length:0.05275,k1Base:-0.23862467,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:7,length:0.05275,k1Base:-0.39770806,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:7,length:0.05275,k1Base:-0.55679063,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:7,length:0.5192,k1Base:-0.63633192,scaleKey:"qd_scale"},
+  {type:"quad_defocus",sp:7,length:0.05275,k1Base:-0.55679063,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:7,length:0.05275,k1Base:-0.39770806,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:7,length:0.05275,k1Base:-0.23862467,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:7,length:0.05275,k1Base:-0.07954129,scaleKey:"qdfr_scale"},
+  {type:"drift",sp:7,length:0.09765000000000157},
+  {type:"trimquad_defocus",sp:7,length:0.307},
+  {type:"drift",sp:7,length:0.09764999999998736},
+  {type:"quad_focus",sp:7,length:0.05275,k1Base:0.07957934,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:7,length:0.05275,k1Base:0.23873962,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:7,length:0.05275,k1Base:0.3978991,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:7,length:0.05275,k1Base:0.55705778,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:7,length:0.5042,k1Base:0.63663711,scaleKey:"qf_scale"},
+  {type:"quad_focus",sp:7,length:0.05275,k1Base:0.55705778,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:7,length:0.05275,k1Base:0.3978991,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:7,length:0.05275,k1Base:0.23873962,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:7,length:0.05275,k1Base:0.07957934,scaleKey:"qffr_scale"},
+  {type:"drift",sp:7,length:0.09669999999999845},
+  {type:"trimquad_focus",sp:7,length:0.307},
+  {type:"drift",sp:7,length:0.4641999999999863},
+  {type:"corrector_h",sp:7,length:0.001},
+  {type:"drift",sp:7,length:4.779300000000002},
+  {type:"quad_defocus",sp:7,length:0.03875,k1Base:-0.0909152,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:7,length:0.03875,k1Base:-0.27274479,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:7,length:0.03875,k1Base:-0.45457519,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:7,length:0.03875,k1Base:-0.63640478,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:7,length:0.2474,k1Base:-0.72731997,scaleKey:"qds_scale"},
+  {type:"quad_defocus",sp:7,length:0.03875,k1Base:-0.63640478,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:7,length:0.03875,k1Base:-0.45457519,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:7,length:0.03875,k1Base:-0.27274479,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:7,length:0.03875,k1Base:-0.0909152,scaleKey:"qdsfr_scale"},
+  {type:"drift",sp:7,length:0.03158200000000022},
+  {type:"dipole",sp:7,length:0.03,k1Base:-0.00106696,scaleKey:"fringe_dipole_neg_scale",angle:0.000097},
+  {type:"dipole",sp:7,length:0.2,k1Base:-0.00081196,scaleKey:"fringe_dipole_neg_scale",angle:0.001126},
+  {type:"dipole",sp:7,length:0.16,k1Base:0.01101772,scaleKey:"fringe_dipole_scale",angle:0.007026},
+  {type:"dipole",sp:7,length:0.04,k1Base:0.01101772,scaleKey:"fringe_dipole_scale",angle:0.001757},
+  {type:"dipole",sp:7,length:0.2,k1Base:0.07106712,scaleKey:"fringe_dipole_scale",angle:0.024266},
+  {type:"dipole",sp:7,length:3.92,k1Base:0.06782332,scaleKey:"main_dipole_scale",angle:0.559776},
+  {type:"dipole",sp:7,length:0.2,k1Base:0.07106712,scaleKey:"fringe_dipole_scale",angle:0.024266},
+  {type:"dipole",sp:7,length:0.04,k1Base:0.01101772,scaleKey:"fringe_dipole_scale",angle:0.001757},
+  {type:"dipole",sp:8,length:0.16,k1Base:0.01101772,scaleKey:"fringe_dipole_scale",angle:0.007026},
+  {type:"dipole",sp:8,length:0.2,k1Base:-0.00081196,scaleKey:"fringe_dipole_neg_scale",angle:0.001126},
+  {type:"dipole",sp:8,length:0.03,k1Base:-0.00106696,scaleKey:"fringe_dipole_neg_scale",angle:0.000097},
+  {type:"drift",sp:8,length:2.549400000000015},
+  {type:"quad_defocus",sp:8,length:0.05275,k1Base:-0.07954129,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:8,length:0.05275,k1Base:-0.23862467,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:8,length:0.05275,k1Base:-0.39770806,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:8,length:0.05275,k1Base:-0.55679063,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:8,length:0.5192,k1Base:-0.63633192,scaleKey:"qd_scale"},
+  {type:"quad_defocus",sp:8,length:0.05275,k1Base:-0.55679063,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:8,length:0.05275,k1Base:-0.39770806,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:8,length:0.05275,k1Base:-0.23862467,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:8,length:0.05275,k1Base:-0.07954129,scaleKey:"qdfr_scale"},
+  {type:"drift",sp:8,length:0.09765000000001578},
+  {type:"trimquad_defocus",sp:8,length:0.307},
+  {type:"drift",sp:8,length:0.09765000000001578},
+  {type:"quad_focus",sp:8,length:0.05275,k1Base:0.07957934,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:8,length:0.05275,k1Base:0.23873962,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:8,length:0.05275,k1Base:0.3978991,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:8,length:0.05275,k1Base:0.55705778,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:8,length:0.5042,k1Base:0.63663711,scaleKey:"qf_scale"},
+  {type:"quad_focus",sp:8,length:0.05275,k1Base:0.55705778,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:8,length:0.05275,k1Base:0.3978991,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:8,length:0.05275,k1Base:0.23873962,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:8,length:0.05275,k1Base:0.07957934,scaleKey:"qffr_scale"},
+  {type:"drift",sp:8,length:0.09669999999999845},
+  {type:"trimquad_focus",sp:8,length:0.307},
+  {type:"rf",sp:8,length:0.05},
+  {type:"drift",sp:8,length:5.194500000000008},
+  {type:"quad_defocus",sp:8,length:0.03875,k1Base:-0.0909152,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:8,length:0.03875,k1Base:-0.27274479,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:8,length:0.03875,k1Base:-0.45457519,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:8,length:0.03875,k1Base:-0.63640478,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:8,length:0.2474,k1Base:-0.72731997,scaleKey:"qds_scale"},
+  {type:"quad_defocus",sp:8,length:0.03875,k1Base:-0.63640478,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:8,length:0.03875,k1Base:-0.45457519,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:8,length:0.03875,k1Base:-0.27274479,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:8,length:0.03875,k1Base:-0.0909152,scaleKey:"qdsfr_scale"},
+  {type:"drift",sp:8,length:0.03158199999998601},
+  {type:"dipole",sp:8,length:0.03,k1Base:-0.00106696,scaleKey:"fringe_dipole_neg_scale",angle:0.000097},
+  {type:"dipole",sp:8,length:0.2,k1Base:-0.00081196,scaleKey:"fringe_dipole_neg_scale",angle:0.001126},
+  {type:"dipole",sp:8,length:0.16,k1Base:0.01101772,scaleKey:"fringe_dipole_scale",angle:0.007026},
+  {type:"dipole",sp:8,length:0.04,k1Base:0.01101772,scaleKey:"fringe_dipole_scale",angle:0.001757},
+  {type:"dipole",sp:8,length:0.2,k1Base:0.07106712,scaleKey:"fringe_dipole_scale",angle:0.024266},
+  {type:"dipole",sp:8,length:3.92,k1Base:0.06782332,scaleKey:"main_dipole_scale",angle:0.559776},
+  {type:"dipole",sp:8,length:0.2,k1Base:0.07106712,scaleKey:"fringe_dipole_scale",angle:0.024266},
+  {type:"dipole",sp:8,length:0.04,k1Base:0.01101772,scaleKey:"fringe_dipole_scale",angle:0.001757},
+  {type:"dipole",sp:9,length:0.16,k1Base:0.01101772,scaleKey:"fringe_dipole_scale",angle:0.007026},
+  {type:"dipole",sp:9,length:0.2,k1Base:-0.00081196,scaleKey:"fringe_dipole_neg_scale",angle:0.001126},
+  {type:"dipole",sp:9,length:0.03,k1Base:-0.00106696,scaleKey:"fringe_dipole_neg_scale",angle:0.000097},
+  {type:"drift",sp:9,length:0.01700000000002433},
+  {type:"sextupole",sp:9,length:0.236},
+  {type:"drift",sp:9,length:2.2964000000000007},
+  {type:"quad_defocus",sp:9,length:0.05275,k1Base:-0.07954129,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:9,length:0.05275,k1Base:-0.23862467,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:9,length:0.05275,k1Base:-0.39770806,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:9,length:0.05275,k1Base:-0.55679063,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:9,length:0.5192,k1Base:-0.63633192,scaleKey:"qd_scale"},
+  {type:"quad_defocus",sp:9,length:0.05275,k1Base:-0.55679063,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:9,length:0.05275,k1Base:-0.39770806,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:9,length:0.05275,k1Base:-0.23862467,scaleKey:"qdfr_scale"},
+  {type:"quad_defocus",sp:9,length:0.05275,k1Base:-0.07954129,scaleKey:"qdfr_scale"},
+  {type:"drift",sp:9,length:0.09765000000001578},
+  {type:"trimquad_defocus",sp:9,length:0.307},
+  {type:"drift",sp:9,length:0.09765000000001578},
+  {type:"quad_focus",sp:9,length:0.05275,k1Base:0.07957934,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:9,length:0.05275,k1Base:0.23873962,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:9,length:0.05275,k1Base:0.3978991,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:9,length:0.05275,k1Base:0.55705778,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:9,length:0.5042,k1Base:0.63663711,scaleKey:"qf_scale"},
+  {type:"quad_focus",sp:9,length:0.05275,k1Base:0.55705778,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:9,length:0.05275,k1Base:0.3978991,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:9,length:0.05275,k1Base:0.23873962,scaleKey:"qffr_scale"},
+  {type:"quad_focus",sp:9,length:0.05275,k1Base:0.07957934,scaleKey:"qffr_scale"},
+  {type:"drift",sp:9,length:0.09669999999999845},
+  {type:"trimquad_focus",sp:9,length:0.307},
+  {type:"drift",sp:9,length:0.4652000000000053},
+  {type:"corrector_h",sp:9,length:0},
+  {type:"drift",sp:9,length:4.282549999999986},
+  {type:"corrector_v",sp:9,length:0.001},
+  {type:"drift",sp:9,length:0.49575000000001046},
+  {type:"quad_defocus",sp:9,length:0.03875,k1Base:-0.0909152,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:9,length:0.03875,k1Base:-0.27274479,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:9,length:0.03875,k1Base:-0.45457519,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:9,length:0.03875,k1Base:-0.63640478,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:9,length:0.2474,k1Base:-0.72731997,scaleKey:"qds_scale"},
+  {type:"quad_defocus",sp:9,length:0.03875,k1Base:-0.63640478,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:9,length:0.03875,k1Base:-0.45457519,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:9,length:0.03875,k1Base:-0.27274479,scaleKey:"qdsfr_scale"},
+  {type:"quad_defocus",sp:9,length:0.03875,k1Base:-0.0909152,scaleKey:"qdsfr_scale"},
+  {type:"drift",sp:9,length:0.03158199999998601},
+  {type:"dipole",sp:9,length:0.03,k1Base:-0.00106696,scaleKey:"fringe_dipole_neg_scale",angle:0.000097},
+  {type:"dipole",sp:9,length:0.2,k1Base:-0.00081196,scaleKey:"fringe_dipole_neg_scale",angle:0.001126},
+  {type:"dipole",sp:9,length:0.16,k1Base:0.01101772,scaleKey:"fringe_dipole_scale",angle:0.007026},
+  {type:"dipole",sp:9,length:0.04,k1Base:0.01101772,scaleKey:"fringe_dipole_scale",angle:0.001757},
+  {type:"dipole",sp:9,length:0.2,k1Base:0.07106712,scaleKey:"fringe_dipole_scale",angle:0.024266},
+  {type:"dipole",sp:9,length:3.92,k1Base:0.06782332,scaleKey:"main_dipole_scale",angle:0.559776},
+  {type:"dipole",sp:9,length:0.2,k1Base:0.07106712,scaleKey:"fringe_dipole_scale",angle:0.024266},
+  {type:"dipole",sp:9,length:0.04,k1Base:0.01101772,scaleKey:"fringe_dipole_scale",angle:0.001757},
+];
 
 const ELEMENT_COLOURS = {
   dipole: 0x8a8a3c,
@@ -377,57 +868,27 @@ function resolveElementK1(el, machineState) {
   return 0;
 }
 
-// Builds one flat array of elements around the ring, real element order per superperiod,
-// correctors only at CORRECTOR_SUPERPERIODS. Drift gaps are sized so each cell sums exactly
-// to CELL_LENGTH_M (illustrative split — real per-drift MAD-X lengths were not fully extracted,
-// see About panel) so total ring length is exactly RING_CIRCUMFERENCE_M.
+// Builds one flat array of elements around the ring from REAL_LATTICE_TEMPLATE,
+// in real MAD-X element order, with real lengths/angles/K1 - only the trim-quad
+// K1 (dynamic, from machineState.kqtf/kqtd) and the corrector currents are
+// runtime-controlled; everything else is the fixed real lattice.
 function buildLattice(machineState) {
   const elements = [];
   let s = 0.0;
+  const spCounts = {};
 
-  for (let sp = 0; sp < N_SUPERPERIODS; sp++) {
-    const hasCorrector = CORRECTOR_SUPERPERIODS.indexOf(sp) !== -1;
-
-    const anchorLens = [
-      QD_EFFECTIVE_LENGTH_M, TRIM_QUAD_LENGTH_M, QF_EFFECTIVE_LENGTH_M, TRIM_QUAD_LENGTH_M,
-      RF_MARKER_LENGTH_M, LONG_DRIFT_LENGTH_M, QDS_EFFECTIVE_LENGTH_M, DIPOLE_LENGTH_M,
-    ];
-    let anchorTotal = anchorLens.reduce((a, b) => a + b, 0);
-    if (hasCorrector) anchorTotal += 2 * KICKER_LENGTH_M;
-    if (sp === 9) anchorTotal += SEXTUPOLE_LENGTH_M;
-
-    const remaining = Math.max(0, CELL_LENGTH_M - anchorTotal);
-    const gapWeights = [0.55, 0.09, 0.09, 0.09, 0.18];
-    const gapLens = gapWeights.map(w => remaining * w);
-    const gapSum = gapLens.reduce((a, b) => a + b, 0);
-    gapLens[gapLens.length - 1] += (remaining - gapSum);
-
-    const pushEl = (el) => {
-      el.s0 = s;
-      elements.push(el);
-      s += el.length;
-    };
-
-    pushEl({ id: `sp${sp}_gap0`, type: 'drift', sp, length: gapLens[0] });
-    if (hasCorrector) {
-      pushEl({ id: `r${sp}hd1_kick`, type: 'corrector_h', sp, length: KICKER_LENGTH_M, correctorName: `r${sp}hd1_kick` });
-      pushEl({ id: `r${sp}vd1_kick`, type: 'corrector_v', sp, length: KICKER_LENGTH_M, correctorName: `r${sp}vd1_kick` });
-    }
-    pushEl({ id: `sp${sp}_qd`, type: 'quad_defocus', sp, length: QD_EFFECTIVE_LENGTH_M, k1Base: QD_K1_BASE, scaleKey: 'qd_scale' });
-    pushEl({ id: `sp${sp}_gap1`, type: 'drift', sp, length: gapLens[1] });
-    pushEl({ id: `sp${sp}_qtd`, type: 'trimquad_defocus', sp, length: TRIM_QUAD_LENGTH_M });
-    pushEl({ id: `sp${sp}_gap2`, type: 'drift', sp, length: gapLens[2] });
-    pushEl({ id: `sp${sp}_qf`, type: 'quad_focus', sp, length: QF_EFFECTIVE_LENGTH_M, k1Base: QF_K1_BASE, scaleKey: 'qf_scale' });
-    pushEl({ id: `sp${sp}_gap3`, type: 'drift', sp, length: gapLens[3] });
-    pushEl({ id: `sp${sp}_qtf`, type: 'trimquad_focus', sp, length: TRIM_QUAD_LENGTH_M });
-    pushEl({ id: `sp${sp}_rf`, type: 'rf', sp, length: RF_MARKER_LENGTH_M, schematic: true });
-    pushEl({ id: `sp${sp}_longdrift`, type: 'drift', sp, length: LONG_DRIFT_LENGTH_M });
-    pushEl({ id: `sp${sp}_qds`, type: 'quad_defocus', sp, length: QDS_EFFECTIVE_LENGTH_M, k1Base: QDS_K1_BASE, scaleKey: 'qds_scale' });
-    if (sp === 9) {
-      pushEl({ id: `sp9_sext`, type: 'sextupole', sp, length: SEXTUPOLE_LENGTH_M, static: true });
-    }
-    pushEl({ id: `sp${sp}_gap4`, type: 'drift', sp, length: gapLens[4] });
-    pushEl({ id: `sp${sp}_dip`, type: 'dipole', sp, length: DIPOLE_LENGTH_M, angle: DIPOLE_ANGLE_RAD, k1Base: DIPOLE_K1_BASE, scaleKey: 'main_dipole_scale' });
+  for (const tmpl of REAL_LATTICE_TEMPLATE) {
+    const sp = tmpl.sp;
+    spCounts[sp] = (spCounts[sp] || 0) + 1;
+    const el = { type: tmpl.type, sp, length: tmpl.length, id: `sp${sp}_${tmpl.type}_${spCounts[sp]}` };
+    if (tmpl.k1Base !== undefined) el.k1Base = tmpl.k1Base;
+    if (tmpl.scaleKey !== undefined) el.scaleKey = tmpl.scaleKey;
+    if (tmpl.angle !== undefined) el.angle = tmpl.angle;
+    if (tmpl.type === 'corrector_h') { el.id = `r${sp}hd1_kick`; el.correctorName = `r${sp}hd1_kick`; }
+    if (tmpl.type === 'corrector_v') { el.id = `r${sp}vd1_kick`; el.correctorName = `r${sp}vd1_kick`; }
+    el.s0 = s;
+    s += el.length;
+    elements.push(el);
   }
 
   return elements;
@@ -767,6 +1228,8 @@ let machineState = {
   vd_corrector_currents_A: makeDefaultCorrectorMap(VD_CORRECTOR_NAMES),
   metadata: {},
   sigma_scale: DEFAULT_SIGMA_SCALE,
+  show_envelope: true,
+  floor_opacity: 1.0,
 
   _lattice: null, _matrices: null,
   _tuneX: null, _tuneY: null,
@@ -838,6 +1301,7 @@ let scene, camera, renderer, controls, ringGroup, ringCurve;
 let elementMeshes = [];
 let orbitMesh = null;
 let envelopeMeshes = { xPlus: null, xMinus: null, yPlus: null, yMinus: null };
+let floorMesh = null;
 let autoRotateTimeout = null;
 
 const beamMarker = new THREE.Mesh(
@@ -957,6 +1421,7 @@ function rebuildOrbitAndEnvelopeMeshes() {
   envelopeMeshes.xMinus = new THREE.Mesh(new THREE.TubeGeometry(curveXMinus, 240, 0.05, 6, true), envMat);
   envelopeMeshes.yPlus  = new THREE.Mesh(new THREE.TubeGeometry(curveYPlus, 240, 0.05, 6, true), envMat);
   envelopeMeshes.yMinus = new THREE.Mesh(new THREE.TubeGeometry(curveYMinus, 240, 0.05, 6, true), envMat);
+  ['xPlus','xMinus','yPlus','yMinus'].forEach(k => { envelopeMeshes[k].visible = !!machineState.show_envelope; });
   ringGroup.add(envelopeMeshes.xPlus, envelopeMeshes.xMinus, envelopeMeshes.yPlus, envelopeMeshes.yMinus);
 }
 
@@ -982,12 +1447,12 @@ function initScene() {
   ringGroup = new THREE.Group();
   scene.add(ringGroup);
 
-  const floor = new THREE.Mesh(
+  floorMesh = new THREE.Mesh(
     new THREE.CircleGeometry(40, 8),
-    new THREE.MeshStandardMaterial({ color: 0x14181f, side: THREE.DoubleSide })
+    new THREE.MeshStandardMaterial({ color: 0x14181f, side: THREE.DoubleSide, transparent: true, opacity: machineState.floor_opacity })
   );
-  floor.rotation.x = -Math.PI / 2;
-  scene.add(floor);
+  floorMesh.rotation.x = -Math.PI / 2;
+  scene.add(floorMesh);
 
   scene.add(beamMarker);
 
@@ -1065,7 +1530,13 @@ const HARMONIC_CONTROLS = Object.keys(DEFAULT_HARMONICS).map(k => ({
 group('Harmonics (inert — see About)', HARMONIC_CONTROLS);
 
 group('Envelope', [
-  { key: 'sigma_scale', label: 'sigma_scale', gloss: 'Envelope width, in units of sigma', min: 1, max: 6, step: 0.5 },
+  { key: 'show_envelope', label: 'show_envelope', gloss: 'Show/hide the blue beam-size envelope tubes', type: 'checkbox' },
+  { key: 'sigma_scale', label: 'sigma_scale', gloss: 'Envelope width, in units of sigma', min: 1, max: 6, step: 0.5, showIf: s => s.show_envelope },
+]);
+
+group('Display', [
+  { key: 'floor_opacity', label: 'floor_opacity', gloss: 'Ground plane opacity (0 = fully transparent)', min: 0, max: 1, step: 0.05,
+    onChange: (v) => { if (floorMesh) floorMesh.material.opacity = v; } },
 ]);
 
 function fmt(v, digits) {
@@ -1101,18 +1572,25 @@ function buildUIPanel() {
           input.appendChild(o);
         });
         input.value = getPath(machineState, c.key);
+      } else if (c.type === 'checkbox') {
+        input = document.createElement('input');
+        input.type = 'checkbox';
+        input.checked = !!getPath(machineState, c.key);
       } else {
         input = document.createElement('input');
         input.type = 'range';
         input.min = c.min; input.max = c.max; input.step = c.step;
         input.value = getPath(machineState, c.key);
       }
-      const eventName = c.type === 'select' ? 'change' : 'input';
+      const eventName = (c.type === 'select' || c.type === 'checkbox') ? 'change' : 'input';
       input.addEventListener(eventName, () => {
-        let v = input.value;
-        if (c.type !== 'select') v = parseFloat(v);
+        let v;
+        if (c.type === 'checkbox') v = input.checked;
+        else if (c.type === 'select') v = input.value;
+        else v = parseFloat(input.value);
         setPath(machineState, c.key, v);
         scheduleRecompute();
+        if (c.onChange) c.onChange(v);
       });
       row.appendChild(input);
 
@@ -1140,7 +1618,7 @@ function refreshUIVisibilityAndReadouts() {
     const visible = c.showIf ? c.showIf(machineState) : true;
     row.style.display = visible ? '' : 'none';
     const val = getPath(machineState, c.key);
-    if (c.type !== 'select') {
+    if (c.type !== 'select' && c.type !== 'checkbox') {
       row._readout.textContent = fmt(val, c.step && c.step < 1 ? 3 : 2) + (c.unit ? ' ' + c.unit : '');
     }
   });
