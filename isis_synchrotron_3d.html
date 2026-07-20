@@ -1,0 +1,1307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ISIS RCS Synchrotron — Live 3D Optics Model</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<style>
+:root {
+  --bg: #0a0d14;
+  --panel-bg: rgba(16,20,28,0.92);
+  --border: #2a3140;
+  --text: #d7dde6;
+  --text-dim: #8a93a6;
+  --accent: #3fa9ff;
+  --accent2: #00e0b8;
+  --danger: #ff5a5a;
+}
+* { box-sizing: border-box; }
+html, body { margin:0; padding:0; width:100%; height:100%; background:var(--bg); color:var(--text);
+  overflow:hidden; font-family:'Segoe UI', system-ui, sans-serif; }
+#viewport { position:fixed; inset:0; }
+#viewport canvas { display:block; }
+
+#topBar {
+  position:fixed; top:0; left:0; right:0; height:48px; z-index:10;
+  display:flex; align-items:center; justify-content:space-between;
+  background:var(--panel-bg); border-bottom:1px solid var(--border); padding:0 16px;
+  font-size:13px;
+}
+.brand { font-weight:600; letter-spacing:0.03em; color:var(--accent); }
+.playback { display:flex; align-items:center; gap:10px; }
+.playback button {
+  background:#182030; color:var(--text); border:1px solid var(--border); border-radius:4px;
+  padding:5px 10px; cursor:pointer; font-size:12px;
+}
+.playback button:hover { border-color:var(--accent); }
+.playback label { font-size:12px; color:var(--text-dim); display:flex; align-items:center; gap:6px; }
+.badge {
+  display:none; background:var(--danger); color:#1a0505; font-weight:700; font-size:11px;
+  padding:3px 8px; border-radius:10px;
+}
+
+.panel {
+  position:fixed; top:56px; bottom:12px; width:300px; z-index:9;
+  background:var(--panel-bg); border:1px solid var(--border); border-radius:8px;
+  overflow-y:auto; padding:10px 12px; font-size:12px;
+}
+.panel.left { left:12px; }
+.panel.right { right:12px; width:300px; }
+
+.panel details { margin-bottom:10px; border-bottom:1px solid var(--border); padding-bottom:8px; }
+.panel summary { cursor:pointer; font-weight:600; color:var(--accent); padding:4px 0; font-size:12.5px; }
+
+.ctrl-row { margin:8px 0; }
+.ctrl-row label { display:flex; flex-direction:column; margin-bottom:3px; }
+.ctrl-name { font-family: Consolas, monospace; color:var(--accent2); font-size:11.5px; }
+.ctrl-gloss { color:var(--text-dim); font-size:10.5px; }
+.ctrl-row input[type=range] { width:100%; }
+.ctrl-row select { width:100%; background:#101622; color:var(--text); border:1px solid var(--border);
+  border-radius:4px; padding:3px; }
+.ctrl-readout { display:block; text-align:right; font-family:Consolas,monospace; color:var(--text); font-size:11px; }
+
+.panel-block { margin-bottom:12px; }
+.panel-block h3 { margin:4px 0 8px; font-size:12.5px; color:var(--accent); }
+.readout-table { width:100%; border-collapse:collapse; font-size:11.5px; }
+.readout-table td { padding:3px 2px; border-bottom:1px solid #1b2130; }
+.readout-table td:first-child { color:var(--text-dim); }
+.readout-table td:last-child { text-align:right; font-family:Consolas,monospace; color:var(--accent2); }
+
+#tuneDiagram { width:100%; background:#0c1018; border:1px solid var(--border); border-radius:4px; }
+
+.legend { display:flex; flex-direction:column; gap:4px; font-size:11px; }
+.legend .swatch { display:inline-block; width:10px; height:10px; margin-right:6px; border-radius:2px;
+  vertical-align:middle; }
+
+.about-list { padding-left:16px; margin:6px 0; font-size:10.8px; color:var(--text-dim); line-height:1.5; }
+.about-list code { color:var(--accent2); }
+</style>
+</head>
+<body>
+
+<div id="viewport"></div>
+
+<div id="topBar">
+  <div class="brand">ISIS RCS — Live Synchrotron Model</div>
+  <div class="playback">
+    <button id="playPauseBtn">Pause</button>
+    <label>Speed <input id="speedSlider" type="range" min="0.02" max="1.5" step="0.02" value="0.15"></label>
+    <button id="resetInjectionBtn">⟲ Injection (0 ms)</button>
+    <button id="resetExtractionBtn">Extraction (10 ms) ⟳</button>
+    <span id="ro-resbadge" class="badge">⚠ near resonance</span>
+  </div>
+</div>
+
+<div id="controlPanel" class="panel left"></div>
+
+<div id="rightPanel" class="panel right">
+  <div class="panel-block">
+    <h3>Live readouts</h3>
+    <table class="readout-table">
+      <tr><td>Qx (simulated)</td><td id="ro-qx">–</td></tr>
+      <tr><td>Qy (simulated)</td><td id="ro-qy">–</td></tr>
+      <tr><td>Di-Wright-implied Qx,Qy</td><td id="ro-diwright">–</td></tr>
+      <tr><td>Kinetic energy</td><td id="ro-energy">–</td></tr>
+      <tr><td>Brho</td><td id="ro-brho">–</td></tr>
+      <tr><td>Max orbit distortion</td><td id="ro-orbit">–</td></tr>
+      <tr><td>Min aperture margin*</td><td id="ro-margin">–</td></tr>
+      <tr><td>Revolution time</td><td id="ro-laptime">–</td></tr>
+      <tr><td>Simulated laps</td><td id="ro-laps">–</td></tr>
+    </table>
+  </div>
+  <div class="panel-block">
+    <h3>Tune diagram (Qx vs Qy)</h3>
+    <canvas id="tuneDiagram" width="300" height="260"></canvas>
+  </div>
+  <details class="panel-block">
+    <summary>Legend</summary>
+    <div class="legend">
+      <div><span class="swatch" style="background:#8a8a3c"></span>Dipole</div>
+      <div><span class="swatch" style="background:#c0392b"></span>Defocus quadrupole</div>
+      <div><span class="swatch" style="background:#1a3d7c"></span>Focus quadrupole</div>
+      <div><span class="swatch" style="background:#1f8a5f"></span>Sextupole</div>
+      <div><span class="swatch" style="background:#17c9c9"></span>Corrector / kicker</div>
+      <div><span class="swatch" style="background:#e08a1e"></span>RF cavity (schematic)</div>
+    </div>
+  </details>
+  <details class="panel-block">
+    <summary>About / sources &amp; simplifications</summary>
+    <ul class="about-list">
+      <li>Ring geometry, element order and K-values are taken from <code>Dev/Lattice_Files/00_Simplified_Lattice/ISIS.{elements,sequence,strength}</code> — real ISIS RCS values, 163.36282&nbsp;m circumference, 10 superperiods.</li>
+      <li>Physics constants and conversion formulas are ported verbatim from <code>Dev/01_Cycle_Time/cycle_time.py</code> and <code>Dev/02_Machine_State/{tune_control,correctors,machine_state,machine_state_defaults}.py</code>.</li>
+      <li>The one-turn transfer-matrix / Twiss engine, closed-orbit Green's function, and betatron-wobble animation are this simulation's own equivalent of what MAD-X/cpymad would report — the real repo has no portable pure-Python formula for "actual tune" or orbit correction (both are MAD-X-only), so "Qx/Qy (simulated)" will not exactly match the Di-Wright-requested tune. That mismatch is physically realistic — it mirrors the real system.</li>
+      <li>Each real quadrupole (9 slices: 8 fringe + 1 core) is collapsed to one effective thick quad using only the core K-value.</li>
+      <li>The RF cavity marker follows the PDF's single-period schematic (page 27) but does not exist in ISIS.elements/ISIS.sequence — schematic only.</li>
+      <li>The superperiod-9 sextupole is real (k2=0 in source) but shown as a static visual element — no portable nonlinear formula exists to animate it.</li>
+      <li>Aperture margin uses an illustrative ±40&nbsp;mm placeholder half-width, not a repo-sourced value (real aperture data lives in an external CSV, not a portable default).</li>
+      <li>Element colours follow the PDF's beta-function-plot legend (pages 28/32/33): Dipole=olive, Defocus quad=red, Focus quad=blue, Sextupole=teal, Kicker=cyan, Marker=grey — chosen over the conflicting page-27 single-period cartoon since the legend is tied to the quantitative plots.</li>
+      <li>Harmonic sliders (D7SIN…F9COS) are shown because they are real <code>MachineState</code> fields, but no formula in the ported Python connects them to tune/orbit/envelope — they are inert here.</li>
+    </ul>
+  </details>
+</div>
+
+<script>
+// ===================== SECTION A: Backend-ported physical & machine constants =====================
+const PROTON_REST_MASS_MEV = 938.27208816;
+const GEV_PER_MEV = 1.0e-3;
+const BRHO_DIVISOR = 0.299792458;
+
+const INJECTION_ENERGY_MEV = 70.0;
+const TOP_ENERGY_MEV = 800.0;
+const CYCLE_START_MS = 0.0;
+const CYCLE_END_MS = 10.0;
+
+const DEFAULT_QX = 4.331;
+const DEFAULT_QY = 3.731;
+const DEFAULT_BASE_QX = 4.331;
+const DEFAULT_BASE_QY = 3.731;
+const DEFAULT_TUNE_METHOD = "di_wright";
+const DEFAULT_TQ_GCAL = 1.997e-3;
+const DEFAULT_DI_TUNE_COEFFICIENTS = [-4.73e-3, -5.99e-3, 4.45e-3, 2.40e-3];
+
+const DEFAULT_HARMONICS = {
+  D7SIN: 0.0, D7COS: 0.0,
+  D8SIN: 0.0, D8COS: 0.0,
+  F8SIN: 0.0, F8COS: 0.0,
+  F9SIN: 0.0, F9COS: 0.0,
+};
+
+const CORRECTOR_SUPERPERIODS = [0, 2, 3, 4, 5, 7, 9];
+const HD_CORRECTOR_NAMES = ["r0hd1_kick","r2hd1_kick","r3hd1_kick","r4hd1_kick","r5hd1_kick","r7hd1_kick","r9hd1_kick"];
+const VD_CORRECTOR_NAMES = ["r0vd1_kick","r2vd1_kick","r3vd1_kick","r4vd1_kick","r5vd1_kick","r7vd1_kick","r9vd1_kick"];
+
+const CORRECTOR_CALIBRATION = {
+  "0H":0.08350, "2H":0.09121, "3H":0.08000, "4H":0.06600, "5H":0.07780, "7H":0.07580, "9H":0.07660,
+  "0V":0.04620, "2V":0.04330, "3V":0.05210, "4V":0.04770, "5V":0.05400, "7V":0.05220, "9V":0.04510,
+};
+
+const RCS_BARE_SCALING = {
+  main_dipole_scale: 1.0, fringe_dipole_scale: 1.0, fringe_dipole_neg_scale: 1.0,
+  qd_scale: 1.0, qdfr_scale: 1.0, qf_scale: 1.0, qffr_scale: 1.0, qds_scale: 1.0, qdsfr_scale: 1.0,
+};
+const SRM_BARE_SCALING = {
+  main_dipole_scale: 1.0, fringe_dipole_scale: 1.0, fringe_dipole_neg_scale: 1.0,
+  qd_scale: 0.984962103600024, qdfr_scale: 0.994661334722062,
+  qf_scale: 0.9887119657096543, qffr_scale: 0.9959758637608666,
+  qds_scale: 0.9931335289706212, qdsfr_scale: 0.9958189246720367,
+};
+const MAIN_MAGNET_SCALING_PRESETS = { rcs_bare: RCS_BARE_SCALING, srm_bare: SRM_BARE_SCALING };
+
+const DEFAULT_EMITTANCE_PI_MM_MRAD = 300.0;
+const DEFAULT_SIGMA_SCALE = 3.0;
+const DEFAULT_DP_OVER_P = 0.002;
+
+const RING_CIRCUMFERENCE_M = 163.36282;
+const N_SUPERPERIODS = 10;
+const CELL_LENGTH_M = 16.336282;
+
+const SPEED_OF_LIGHT_M_S = 299792458.0;
+
+const APERTURE_HALF_WIDTH_M = 0.040; // illustrative placeholder — NOT a repo-sourced value, see About panel
+</script>
+
+<script>
+// ===================== SECTION B: Cycle-time / ramp physics (Dev/01_Cycle_Time/cycle_time.py) =====================
+function momentumFromKineticEnergyMeVc(keMeV, restMassMeV) {
+  restMassMeV = restMassMeV === undefined ? PROTON_REST_MASS_MEV : restMassMeV;
+  const totalE = keMeV + restMassMeV;
+  return Math.sqrt(totalE * totalE - restMassMeV * restMassMeV);
+}
+
+function brhoFromMomentumMeVc(pMeVc) {
+  const pGeVc = pMeVc * GEV_PER_MEV;
+  return pGeVc / BRHO_DIVISOR;
+}
+
+class RCSRamp {
+  constructor(topEnergyMeV, injectionEnergyMeV, cycleStartMs, cycleEndMs, restMassMeV) {
+    this.topEnergyMeV = topEnergyMeV === undefined ? TOP_ENERGY_MEV : topEnergyMeV;
+    this.injectionEnergyMeV = injectionEnergyMeV === undefined ? INJECTION_ENERGY_MEV : injectionEnergyMeV;
+    this.cycleStartMs = cycleStartMs === undefined ? CYCLE_START_MS : cycleStartMs;
+    this.cycleEndMs = cycleEndMs === undefined ? CYCLE_END_MS : cycleEndMs;
+    this.restMassMeV = restMassMeV === undefined ? PROTON_REST_MASS_MEV : restMassMeV;
+
+    this.injectionMomentumMeVc = momentumFromKineticEnergyMeVc(this.injectionEnergyMeV, this.restMassMeV);
+    this.topMomentumMeVc = momentumFromKineticEnergyMeVc(this.topEnergyMeV, this.restMassMeV);
+    this.momentumRatio = this.topMomentumMeVc / this.injectionMomentumMeVc;
+  }
+
+  rampFractionAt(tMs) {
+    const clipped = Math.min(Math.max(tMs, this.cycleStartMs), this.cycleEndMs);
+    return (clipped - this.cycleStartMs) / (this.cycleEndMs - this.cycleStartMs);
+  }
+
+  normalisedMomentumAt(tMs) {
+    const f = this.rampFractionAt(tMs);
+    const pr = this.momentumRatio;
+    return 0.5 * (pr + 1.0 - (pr - 1.0) * Math.cos(Math.PI * f));
+  }
+
+  momentumAt(tMs) { return this.injectionMomentumMeVc * this.normalisedMomentumAt(tMs); }
+
+  totalEnergyAt(tMs) {
+    const p = this.momentumAt(tMs);
+    return Math.sqrt(p * p + this.restMassMeV * this.restMassMeV);
+  }
+
+  kineticEnergyAt(tMs) { return this.totalEnergyAt(tMs) - this.restMassMeV; }
+  gammaAt(tMs) { return this.totalEnergyAt(tMs) / this.restMassMeV; }
+  betaAt(tMs) { const g = this.gammaAt(tMs); return Math.sqrt(1.0 - 1.0 / (g * g)); }
+  brhoAt(tMs) { return brhoFromMomentumMeVc(this.momentumAt(tMs)); }
+
+  stateAt(tMs) {
+    const t = tMs;
+    return {
+      cycle_time_ms: t,
+      kinetic_energy_MeV: this.kineticEnergyAt(t),
+      total_energy_MeV: this.totalEnergyAt(t),
+      gamma: this.gammaAt(t),
+      beta: this.betaAt(t),
+      momentum_MeV_c: this.momentumAt(t),
+      brho_Tm: this.brhoAt(t),
+      normalised_momentum: this.normalisedMomentumAt(t),
+    };
+  }
+}
+</script>
+
+<script>
+// ===================== SECTION C: Di Wright tune control + correctors (Dev/02_Machine_State/{tune_control,correctors}.py) =====================
+function tuneToTrimQuadCurrentDi(qx, qy, baseQx, baseQy, pn, coeffs) {
+  const z1 = coeffs[0], z2 = coeffs[1], z3 = coeffs[2], z4 = coeffs[3];
+  const dqx = qx - baseQx, dqy = qy - baseQy;
+  const denom = z1 * z4 - z2 * z3;
+  if (denom === 0) return { iqtf_A: 0, iqtd_A: 0 };
+  const iqtf_A = -pn * (z1 * dqy - z3 * dqx) / denom;
+  const iqtd_A = -pn * (z4 * dqx - z2 * dqy) / denom;
+  return { iqtf_A, iqtd_A };
+}
+
+// NOTE: not an exact inverse of tuneToTrimQuadCurrentDi (no negation here) — ported as-is from the Python source.
+function trimQuadCurrentToTuneDi(iqtf_A, iqtd_A, baseQx, baseQy, pn, coeffs) {
+  const z1 = coeffs[0], z2 = coeffs[1], z3 = coeffs[2], z4 = coeffs[3];
+  if (pn === 0) return { qx: baseQx, qy: baseQy };
+  const dqx = (iqtf_A * z2 + z1 * iqtd_A) / pn;
+  const dqy = (iqtf_A * z4 + z3 * iqtd_A) / pn;
+  return { qx: baseQx + dqx, qy: baseQy + dqy };
+}
+
+function currentToStrength(currentA, gcal, brhoTm, pn) {
+  if (brhoTm === 0 || pn === 0) return 0;
+  return currentA * gcal / brhoTm / pn;
+}
+function strengthToCurrent(strength, gcal, brhoTm, pn) {
+  if (gcal === 0) return 0;
+  return strength * brhoTm * pn / gcal;
+}
+
+function calculateKqtfKqtdDi(qx, qy, beamState, baseQx, baseQy, coeffs, gcal) {
+  coeffs = coeffs || DEFAULT_DI_TUNE_COEFFICIENTS;
+  gcal = gcal === undefined ? DEFAULT_TQ_GCAL : gcal;
+  const pn = beamState.normalised_momentum;
+  const brho = beamState.brho_Tm;
+  const r = tuneToTrimQuadCurrentDi(qx, qy, baseQx, baseQy, pn, coeffs);
+  const kqtf = currentToStrength(r.iqtf_A, gcal, brho, pn);
+  const kqtd = currentToStrength(r.iqtd_A, gcal, brho, pn);
+  return { iqtf_A: r.iqtf_A, iqtd_A: r.iqtd_A, kqtf, kqtd };
+}
+
+function correctorSuperperiodAndPlane(name) {
+  const lower = name.toLowerCase();
+  const sp = parseInt(lower[1], 10);
+  let plane = null;
+  if (lower.indexOf('hd') !== -1) plane = 'H';
+  else if (lower.indexOf('vd') !== -1) plane = 'V';
+  return { sp, plane };
+}
+function correctorCalibrationKey(name) {
+  const r = correctorSuperperiodAndPlane(name);
+  return `${r.sp}${r.plane}`;
+}
+function currentToKickRad(name, currentA, beamState) {
+  const key = correctorCalibrationKey(name);
+  const cal = CORRECTOR_CALIBRATION[key];
+  const brho = beamState.brho_Tm;
+  if (!cal || brho === 0) return 0;
+  const kickMrad = currentA * cal / brho;
+  return kickMrad * 1e-3;
+}
+function kickRadToCurrent(name, kickRad, beamState) {
+  const key = correctorCalibrationKey(name);
+  const cal = CORRECTOR_CALIBRATION[key];
+  if (!cal) return 0;
+  const kickMrad = kickRad * 1e3;
+  return kickMrad * beamState.brho_Tm / cal;
+}
+</script>
+
+<script>
+// ===================== SECTION D: Lattice model (Dev/Lattice_Files/00_Simplified_Lattice/ISIS.{elements,sequence,strength}) =====================
+const DIPOLE_LENGTH_M = 3.92;
+const DIPOLE_ANGLE_RAD = 0.559776;
+const DIPOLE_K1_BASE = 0.06782332; // combined-function dipole, * main_dipole_scale (verified ISIS.strength:38)
+
+const QD_K1_BASE = -0.63633192;   // * qd_scale (defocusing)
+const QD_EFFECTIVE_LENGTH_M = 0.9412; // fringe+core collapsed to one effective thick quad
+const QF_K1_BASE = 0.63663711;    // * qf_scale (focusing)
+const QF_EFFECTIVE_LENGTH_M = 0.9262;
+const QDS_K1_BASE = -0.72731997;  // * qds_scale (defocusing)
+const QDS_EFFECTIVE_LENGTH_M = 0.5474;
+
+const TRIM_QUAD_LENGTH_M = 0.307;
+const LONG_DRIFT_LENGTH_M = 5.2445;
+const KICKER_LENGTH_M = 0.001;
+const SEXTUPOLE_LENGTH_M = 0.236;
+const RF_MARKER_LENGTH_M = 0.05; // schematic only — not present in ISIS.elements/ISIS.sequence
+
+const ELEMENT_COLOURS = {
+  dipole: 0x8a8a3c,
+  quad_focus: 0x1a3d7c,
+  quad_defocus: 0xc0392b,
+  trimquad_focus: 0x5f8fe0,
+  trimquad_defocus: 0xe07a6c,
+  corrector: 0x17c9c9,
+  sextupole: 0x1f8a5f,
+  rf: 0xe08a1e,
+};
+
+function resolveElementK1(el, machineState) {
+  if (el.type === 'trimquad_defocus') return machineState.kqtd;
+  if (el.type === 'trimquad_focus') return machineState.kqtf;
+  if (el.k1Base !== undefined) {
+    const scale = machineState.main_magnet_scaling[el.scaleKey];
+    return el.k1Base * (scale === undefined ? 1 : scale);
+  }
+  return 0;
+}
+
+// Builds one flat array of elements around the ring, real element order per superperiod,
+// correctors only at CORRECTOR_SUPERPERIODS. Drift gaps are sized so each cell sums exactly
+// to CELL_LENGTH_M (illustrative split — real per-drift MAD-X lengths were not fully extracted,
+// see About panel) so total ring length is exactly RING_CIRCUMFERENCE_M.
+function buildLattice(machineState) {
+  const elements = [];
+  let s = 0.0;
+
+  for (let sp = 0; sp < N_SUPERPERIODS; sp++) {
+    const hasCorrector = CORRECTOR_SUPERPERIODS.indexOf(sp) !== -1;
+
+    const anchorLens = [
+      QD_EFFECTIVE_LENGTH_M, TRIM_QUAD_LENGTH_M, QF_EFFECTIVE_LENGTH_M, TRIM_QUAD_LENGTH_M,
+      RF_MARKER_LENGTH_M, LONG_DRIFT_LENGTH_M, QDS_EFFECTIVE_LENGTH_M, DIPOLE_LENGTH_M,
+    ];
+    let anchorTotal = anchorLens.reduce((a, b) => a + b, 0);
+    if (hasCorrector) anchorTotal += 2 * KICKER_LENGTH_M;
+    if (sp === 9) anchorTotal += SEXTUPOLE_LENGTH_M;
+
+    const remaining = Math.max(0, CELL_LENGTH_M - anchorTotal);
+    const gapWeights = [0.55, 0.09, 0.09, 0.09, 0.18];
+    const gapLens = gapWeights.map(w => remaining * w);
+    const gapSum = gapLens.reduce((a, b) => a + b, 0);
+    gapLens[gapLens.length - 1] += (remaining - gapSum);
+
+    const pushEl = (el) => {
+      el.s0 = s;
+      elements.push(el);
+      s += el.length;
+    };
+
+    pushEl({ id: `sp${sp}_gap0`, type: 'drift', sp, length: gapLens[0] });
+    if (hasCorrector) {
+      pushEl({ id: `r${sp}hd1_kick`, type: 'corrector_h', sp, length: KICKER_LENGTH_M, correctorName: `r${sp}hd1_kick` });
+      pushEl({ id: `r${sp}vd1_kick`, type: 'corrector_v', sp, length: KICKER_LENGTH_M, correctorName: `r${sp}vd1_kick` });
+    }
+    pushEl({ id: `sp${sp}_qd`, type: 'quad_defocus', sp, length: QD_EFFECTIVE_LENGTH_M, k1Base: QD_K1_BASE, scaleKey: 'qd_scale' });
+    pushEl({ id: `sp${sp}_gap1`, type: 'drift', sp, length: gapLens[1] });
+    pushEl({ id: `sp${sp}_qtd`, type: 'trimquad_defocus', sp, length: TRIM_QUAD_LENGTH_M });
+    pushEl({ id: `sp${sp}_gap2`, type: 'drift', sp, length: gapLens[2] });
+    pushEl({ id: `sp${sp}_qf`, type: 'quad_focus', sp, length: QF_EFFECTIVE_LENGTH_M, k1Base: QF_K1_BASE, scaleKey: 'qf_scale' });
+    pushEl({ id: `sp${sp}_gap3`, type: 'drift', sp, length: gapLens[3] });
+    pushEl({ id: `sp${sp}_qtf`, type: 'trimquad_focus', sp, length: TRIM_QUAD_LENGTH_M });
+    pushEl({ id: `sp${sp}_rf`, type: 'rf', sp, length: RF_MARKER_LENGTH_M, schematic: true });
+    pushEl({ id: `sp${sp}_longdrift`, type: 'drift', sp, length: LONG_DRIFT_LENGTH_M });
+    pushEl({ id: `sp${sp}_qds`, type: 'quad_defocus', sp, length: QDS_EFFECTIVE_LENGTH_M, k1Base: QDS_K1_BASE, scaleKey: 'qds_scale' });
+    if (sp === 9) {
+      pushEl({ id: `sp9_sext`, type: 'sextupole', sp, length: SEXTUPOLE_LENGTH_M, static: true });
+    }
+    pushEl({ id: `sp${sp}_gap4`, type: 'drift', sp, length: gapLens[4] });
+    pushEl({ id: `sp${sp}_dip`, type: 'dipole', sp, length: DIPOLE_LENGTH_M, angle: DIPOLE_ANGLE_RAD, k1Base: DIPOLE_K1_BASE, scaleKey: 'main_dipole_scale' });
+  }
+
+  return elements;
+}
+</script>
+
+
+<script>
+// ===================== SECTION E: Transfer matrices & Twiss/tune engine (new — no portable MAD-X-free equivalent exists in the repo) =====================
+const IDENTITY_2X2 = [[1, 0], [0, 1]];
+
+function matMul(A, B) {
+  return [
+    [A[0][0]*B[0][0] + A[0][1]*B[1][0], A[0][0]*B[0][1] + A[0][1]*B[1][1]],
+    [A[1][0]*B[0][0] + A[1][1]*B[1][0], A[1][0]*B[0][1] + A[1][1]*B[1][1]],
+  ];
+}
+
+function driftMatrix(L) { return [[1, L], [0, 1]]; }
+
+function quadMatrix(k, L) {
+  if (L <= 0) return [[1,0],[0,1]];
+  if (k === 0) return driftMatrix(L);
+  const sqrtk = Math.sqrt(Math.abs(k));
+  const arg = sqrtk * L;
+  if (k > 0) {
+    return [
+      [Math.cos(arg), Math.sin(arg) / sqrtk],
+      [-sqrtk * Math.sin(arg), Math.cos(arg)],
+    ];
+  }
+  return [
+    [Math.cosh(arg), Math.sinh(arg) / sqrtk],
+    [sqrtk * Math.sinh(arg), Math.cosh(arg)],
+  ];
+}
+
+// Combined-function dipole: horizontal plane gets the extra 1/rho^2 geometric bending term on top of k1.
+function dipoleMatrices(k1, angle, L) {
+  if (L <= 0 || angle === 0) {
+    const d = driftMatrix(L);
+    return { x: d, y: d };
+  }
+  const rho = L / angle;
+  const Kx = k1 + 1.0 / (rho * rho);
+  const Ky = -k1;
+  return { x: quadMatrix(Kx, L), y: quadMatrix(Ky, L) };
+}
+
+function elementMatrices(el, machineState) {
+  if (el.type === 'dipole') {
+    const k1 = resolveElementK1(el, machineState);
+    return dipoleMatrices(k1, el.angle, el.length);
+  }
+  if (el.type === 'quad_focus' || el.type === 'quad_defocus' ||
+      el.type === 'trimquad_focus' || el.type === 'trimquad_defocus') {
+    const k1 = resolveElementK1(el, machineState);
+    return { x: quadMatrix(k1, el.length), y: quadMatrix(-k1, el.length) };
+  }
+  const d = driftMatrix(el.length);
+  return { x: d, y: d };
+}
+
+function buildTransferMatrices(lattice, machineState) {
+  return lattice.map(el => elementMatrices(el, machineState));
+}
+
+function oneTurnMatrix(matrices, plane) {
+  let M = [[1,0],[0,1]];
+  for (let i = 0; i < matrices.length; i++) {
+    M = matMul(matrices[i][plane], M);
+  }
+  return M;
+}
+
+function extractTune(M, baseTune) {
+  const trace = M[0][0] + M[1][1];
+  const cosMu = Math.min(1, Math.max(-1, trace / 2));
+  const mu = Math.acos(cosMu);
+  const qFrac = mu / (2 * Math.PI);
+  const qInt = Math.floor(baseTune);
+  return { mu, qFrac, q: qInt + qFrac };
+}
+
+// Periodic (matched) Twiss at ring start, then propagate beta/alpha/phase element-by-element.
+function propagatePeriodicTwiss(lattice, matrices, plane, mu) {
+  const sinMu = Math.sin(mu);
+  if (Math.abs(sinMu) < 1e-9) {
+    // Near-integer tune — degenerate; fall back to a flat nominal lattice to avoid NaN propagation.
+    const table = lattice.map(el => ({ s: el.s0, beta: 1, alpha: 0, phi: 0 }));
+    table.push({ s: RING_CIRCUMFERENCE_M, beta: 1, alpha: 0, phi: 0 });
+    return table;
+  }
+  const M = oneTurnMatrix(matrices, plane);
+  let beta = M[0][1] / sinMu;
+  let alpha = (M[0][0] - M[1][1]) / (2 * sinMu);
+  if (beta <= 0) beta = Math.abs(beta) || 1;
+  let gamma = (1 + alpha * alpha) / beta;
+
+  const table = [];
+  let phi = 0;
+  let s = 0;
+  for (let i = 0; i < lattice.length; i++) {
+    table.push({ s, beta, alpha, phi });
+    const m = matrices[i][plane];
+    const m11 = m[0][0], m12 = m[0][1], m21 = m[1][0], m22 = m[1][1];
+    const betaNew  =  m11*m11*beta - 2*m11*m12*alpha + m12*m12*gamma;
+    const alphaNew = -m11*m21*beta + (m11*m22 + m12*m21)*alpha - m12*m22*gamma;
+    const gammaNew =  m21*m21*beta - 2*m21*m22*alpha + m22*m22*gamma;
+    let dPhi = 0;
+    if (beta > 0 && m12 !== 0) {
+      dPhi = Math.atan2(m12, m11 * beta - m12 * alpha);
+      if (dPhi < 0) dPhi += Math.PI;
+    }
+    phi += dPhi;
+    s += lattice[i].length;
+    beta = Math.max(betaNew, 1e-6);
+    alpha = alphaNew;
+    gamma = Math.max(gammaNew, 1e-9);
+  }
+  table.push({ s, beta, alpha, phi });
+  return table;
+}
+
+function sampleArrayAtS(sArray, valueArray, sQuery) {
+  const ring = RING_CIRCUMFERENCE_M;
+  const s = ((sQuery % ring) + ring) % ring;
+  let lo = 0, hi = sArray.length - 1;
+  if (s <= sArray[0]) return valueArray[0];
+  if (s >= sArray[hi]) return valueArray[hi];
+  while (hi - lo > 1) {
+    const mid = (lo + hi) >> 1;
+    if (sArray[mid] <= s) lo = mid; else hi = mid;
+  }
+  const frac = (s - sArray[lo]) / ((sArray[hi] - sArray[lo]) || 1);
+  return valueArray[lo] + (valueArray[hi] - valueArray[lo]) * frac;
+}
+
+function interpTwiss(table, sQuery) {
+  const ring = RING_CIRCUMFERENCE_M;
+  const s = ((sQuery % ring) + ring) % ring;
+  let lo = 0, hi = table.length - 1;
+  if (s <= table[0].s) return table[0];
+  if (s >= table[hi].s) return table[hi];
+  while (hi - lo > 1) {
+    const mid = (lo + hi) >> 1;
+    if (table[mid].s <= s) lo = mid; else hi = mid;
+  }
+  const a = table[lo], b = table[hi];
+  const frac = (s - a.s) / ((b.s - a.s) || 1);
+  return {
+    s,
+    beta: a.beta + (b.beta - a.beta) * frac,
+    alpha: a.alpha + (b.alpha - a.alpha) * frac,
+    phi: a.phi + (b.phi - a.phi) * frac,
+  };
+}
+</script>
+
+
+<script>
+// ===================== SECTION F: Closed orbit (Green's function), envelope, aperture, resonance lines =====================
+function computeClosedOrbit(twissTableX, twissTableY, lattice, machineState, Qx, Qy) {
+  const sinPiQx = Math.sin(Math.PI * Qx);
+  const sinPiQy = Math.sin(Math.PI * Qy);
+  const nearResonanceX = Math.abs(sinPiQx) < 1e-3;
+  const nearResonanceY = Math.abs(sinPiQy) < 1e-3;
+
+  const gridX = twissTableX.map(pt => pt.s);
+  const gridY = twissTableY.map(pt => pt.s);
+  const orbitX = new Array(gridX.length).fill(0);
+  const orbitY = new Array(gridY.length).fill(0);
+
+  const findEl = (name) => lattice.find(e => e.correctorName === name);
+
+  const hdKicks = HD_CORRECTOR_NAMES.map(name => {
+    const el = findEl(name);
+    if (!el) return null;
+    const s0 = el.s0 + el.length / 2;
+    const theta = machineState.hd_corrector_kicks_rad[name] || 0;
+    const t0 = interpTwiss(twissTableX, s0);
+    return { s0, theta, beta0: t0.beta, phi0: t0.phi };
+  }).filter(Boolean);
+
+  const vdKicks = VD_CORRECTOR_NAMES.map(name => {
+    const el = findEl(name);
+    if (!el) return null;
+    const s0 = el.s0 + el.length / 2;
+    const theta = machineState.vd_corrector_kicks_rad[name] || 0;
+    const t0 = interpTwiss(twissTableY, s0);
+    return { s0, theta, beta0: t0.beta, phi0: t0.phi };
+  }).filter(Boolean);
+
+  if (!nearResonanceX) {
+    for (let i = 0; i < gridX.length; i++) {
+      const betaS = twissTableX[i].beta;
+      const phiS = twissTableX[i].phi;
+      let sum = 0;
+      for (const k of hdKicks) {
+        if (k.theta === 0) continue;
+        sum += Math.sqrt(Math.max(0, betaS * k.beta0)) / (2 * sinPiQx) * k.theta *
+               Math.cos(Math.abs(phiS - k.phi0) - Math.PI * Qx);
+      }
+      orbitX[i] = sum;
+    }
+  }
+  if (!nearResonanceY) {
+    for (let i = 0; i < gridY.length; i++) {
+      const betaS = twissTableY[i].beta;
+      const phiS = twissTableY[i].phi;
+      let sum = 0;
+      for (const k of vdKicks) {
+        if (k.theta === 0) continue;
+        sum += Math.sqrt(Math.max(0, betaS * k.beta0)) / (2 * sinPiQy) * k.theta *
+               Math.cos(Math.abs(phiS - k.phi0) - Math.PI * Qy);
+      }
+      orbitY[i] = sum;
+    }
+  }
+
+  // Merge onto a single shared s-grid (x and y grids are identical by construction — same lattice)
+  return { s: gridX, x_m: orbitX, y_m: orbitY, nearResonanceX, nearResonanceY };
+}
+
+function evaluateEnvelope(twissTableX, twissTableY, closedOrbit, sigmaScale) {
+  const emitMRad = DEFAULT_EMITTANCE_PI_MM_MRAD * 1e-6; // "pi mm mrad" is a unit label, not x Math.PI
+  const n = twissTableX.length;
+  const sigmaX = new Array(n), sigmaY = new Array(n);
+  const envXPlus = new Array(n), envXMinus = new Array(n);
+  const envYPlus = new Array(n), envYMinus = new Array(n);
+  for (let i = 0; i < n; i++) {
+    sigmaX[i] = Math.sqrt(Math.max(0, twissTableX[i].beta * emitMRad));
+    sigmaY[i] = Math.sqrt(Math.max(0, twissTableY[i].beta * emitMRad));
+    envXPlus[i]  = closedOrbit.x_m[i] + sigmaScale * sigmaX[i];
+    envXMinus[i] = closedOrbit.x_m[i] - sigmaScale * sigmaX[i];
+    envYPlus[i]  = closedOrbit.y_m[i] + sigmaScale * sigmaY[i];
+    envYMinus[i] = closedOrbit.y_m[i] - sigmaScale * sigmaY[i];
+  }
+  return { s: closedOrbit.s, sigmaX, sigmaY, envXPlus, envXMinus, envYPlus, envYMinus };
+}
+
+// Illustrative placeholder half-aperture (+/-40mm) — NOT a repo-sourced value (real data lives in an
+// external CSV loaded by aperture.py, no portable default exists). See About panel.
+function evaluateApertureMargin(envelope) {
+  let minMargin = Infinity;
+  for (let i = 0; i < envelope.s.length; i++) {
+    const mX = APERTURE_HALF_WIDTH_M - Math.max(Math.abs(envelope.envXPlus[i]), Math.abs(envelope.envXMinus[i]));
+    const mY = APERTURE_HALF_WIDTH_M - Math.max(Math.abs(envelope.envYPlus[i]), Math.abs(envelope.envYMinus[i]));
+    minMargin = Math.min(minMargin, mX, mY);
+  }
+  return minMargin;
+}
+
+// Ported from Dev/10_Tune/tune.py :: generate_resonance_lines (the clipped/authoritative version).
+function clipResonanceLine(nx, ny, r, qxMin, qxMax, qyMin, qyMax) {
+  const pts = [];
+  const tol = 1e-9;
+  if (ny !== 0) {
+    const y0 = (r - nx * qxMin) / ny;
+    if (y0 >= qyMin - tol && y0 <= qyMax + tol) pts.push([qxMin, y0]);
+    const y1 = (r - nx * qxMax) / ny;
+    if (y1 >= qyMin - tol && y1 <= qyMax + tol) pts.push([qxMax, y1]);
+  }
+  if (nx !== 0) {
+    const x0 = (r - ny * qyMin) / nx;
+    if (x0 >= qxMin - tol && x0 <= qxMax + tol) pts.push([x0, qyMin]);
+    const x1 = (r - ny * qyMax) / nx;
+    if (x1 >= qxMin - tol && x1 <= qxMax + tol) pts.push([x1, qyMax]);
+  }
+  const uniq = [];
+  for (const p of pts) {
+    if (!uniq.some(q => Math.abs(q[0] - p[0]) < 1e-9 && Math.abs(q[1] - p[1]) < 1e-9)) uniq.push(p);
+  }
+  if (uniq.length < 2) return null;
+  return [uniq[0], uniq[1]];
+}
+
+function generateResonanceLines(xlims, ylims, orders, periodicity) {
+  orders = orders || [1, 2, 3, 4];
+  periodicity = periodicity === undefined ? 10 : periodicity;
+  const qxMin = xlims[0], qxMax = xlims[1], qyMin = ylims[0], qyMax = ylims[1];
+  const lines = [];
+
+  for (const order of orders) {
+    for (let ny = -order; ny <= order; ny++) {
+      const nx = order - Math.abs(ny);
+      if (nx === 0 && ny === 0) continue;
+      const corners = [
+        nx*qxMin + ny*qyMin, nx*qxMin + ny*qyMax,
+        nx*qxMax + ny*qyMin, nx*qxMax + ny*qyMax,
+      ];
+      const rMin = Math.floor(Math.min.apply(null, corners));
+      const rMax = Math.ceil(Math.max.apply(null, corners));
+      for (let resonanceSum = rMin; resonanceSum <= rMax; resonanceSum++) {
+        const seg = clipResonanceLine(nx, ny, resonanceSum, qxMin, qxMax, qyMin, qyMax);
+        if (!seg) continue;
+        const systematic = ((resonanceSum % periodicity) + periodicity) % periodicity === 0;
+        const skew = (Math.abs(ny) % 2) !== 0;
+        lines.push({ order, nx, ny, resonanceSum, systematic, skew, x0: seg[0][0], y0: seg[0][1], x1: seg[1][0], y1: seg[1][1] });
+      }
+    }
+  }
+  return lines;
+}
+</script>
+
+
+<script>
+// ===================== SECTION G: machineState (mirrors MachineState field names) & recomputePhysics() =====================
+const rcsRamp = new RCSRamp();
+
+function makeDefaultCorrectorMap(names) {
+  const m = {};
+  names.forEach(n => { m[n] = 0.0; });
+  return m;
+}
+
+let machineState = {
+  timestamp: new Date().toISOString(),
+  cycle_time_ms: 5.0,
+  beam_state: rcsRamp.stateAt(5.0),
+  main_magnet_mode: 'rcs_bare',
+  main_magnet_scaling: Object.assign({}, RCS_BARE_SCALING),
+  tune_method: 'di_wright',
+  requested_qx: DEFAULT_QX,
+  requested_qy: DEFAULT_QY,
+  base_qx: DEFAULT_BASE_QX,
+  base_qy: DEFAULT_BASE_QY,
+  kqtd: 0.0,
+  kqtf: 0.0,
+  iqtd_A: 0.0,
+  iqtf_A: 0.0,
+  harmonic_tunes: Object.assign({}, DEFAULT_HARMONICS),
+  hd_corrector_kicks_rad: makeDefaultCorrectorMap(HD_CORRECTOR_NAMES),
+  vd_corrector_kicks_rad: makeDefaultCorrectorMap(VD_CORRECTOR_NAMES),
+  hd_corrector_currents_A: makeDefaultCorrectorMap(HD_CORRECTOR_NAMES),
+  vd_corrector_currents_A: makeDefaultCorrectorMap(VD_CORRECTOR_NAMES),
+  metadata: {},
+  sigma_scale: DEFAULT_SIGMA_SCALE,
+
+  _lattice: null, _matrices: null,
+  _tuneX: null, _tuneY: null,
+  _twissX: null, _twissY: null,
+  _closedOrbit: null, _envelope: null, _apertureMargin: null,
+  _diWrightImpliedQx: null, _diWrightImpliedQy: null,
+};
+
+let sceneDirty = true;
+let tuneTrail = [];
+
+function recomputePhysics() {
+  machineState.beam_state = rcsRamp.stateAt(machineState.cycle_time_ms);
+  const bs = machineState.beam_state;
+
+  if (machineState.tune_method === 'di_wright') {
+    const r = calculateKqtfKqtdDi(machineState.requested_qx, machineState.requested_qy, bs, machineState.base_qx, machineState.base_qy);
+    machineState.kqtf = r.kqtf; machineState.kqtd = r.kqtd;
+    machineState.iqtf_A = r.iqtf_A; machineState.iqtd_A = r.iqtd_A;
+    machineState._diWrightImpliedQx = null;
+    machineState._diWrightImpliedQy = null;
+  } else {
+    machineState.kqtf = currentToStrength(machineState.iqtf_A, DEFAULT_TQ_GCAL, bs.brho_Tm, bs.normalised_momentum);
+    machineState.kqtd = currentToStrength(machineState.iqtd_A, DEFAULT_TQ_GCAL, bs.brho_Tm, bs.normalised_momentum);
+    const implied = trimQuadCurrentToTuneDi(machineState.iqtf_A, machineState.iqtd_A, machineState.base_qx, machineState.base_qy, bs.normalised_momentum, DEFAULT_DI_TUNE_COEFFICIENTS);
+    machineState._diWrightImpliedQx = implied.qx;
+    machineState._diWrightImpliedQy = implied.qy;
+  }
+
+  HD_CORRECTOR_NAMES.forEach(name => {
+    machineState.hd_corrector_kicks_rad[name] = currentToKickRad(name, machineState.hd_corrector_currents_A[name], bs);
+  });
+  VD_CORRECTOR_NAMES.forEach(name => {
+    machineState.vd_corrector_kicks_rad[name] = currentToKickRad(name, machineState.vd_corrector_currents_A[name], bs);
+  });
+
+  machineState.main_magnet_scaling = Object.assign({}, MAIN_MAGNET_SCALING_PRESETS[machineState.main_magnet_mode]);
+
+  machineState._lattice = buildLattice(machineState);
+  machineState._matrices = buildTransferMatrices(machineState._lattice, machineState);
+
+  const Mx = oneTurnMatrix(machineState._matrices, 'x');
+  const My = oneTurnMatrix(machineState._matrices, 'y');
+  const tuneX = extractTune(Mx, machineState.base_qx);
+  const tuneY = extractTune(My, machineState.base_qy);
+  machineState._tuneX = tuneX;
+  machineState._tuneY = tuneY;
+  machineState._twissX = propagatePeriodicTwiss(machineState._lattice, machineState._matrices, 'x', tuneX.mu);
+  machineState._twissY = propagatePeriodicTwiss(machineState._lattice, machineState._matrices, 'y', tuneY.mu);
+
+  machineState._closedOrbit = computeClosedOrbit(machineState._twissX, machineState._twissY, machineState._lattice, machineState, tuneX.q, tuneY.q);
+  machineState._envelope = evaluateEnvelope(machineState._twissX, machineState._twissY, machineState._closedOrbit, machineState.sigma_scale);
+  machineState._apertureMargin = evaluateApertureMargin(machineState._envelope);
+
+  tuneTrail.push({ qx: tuneX.q, qy: tuneY.q });
+  if (tuneTrail.length > 60) tuneTrail.shift();
+
+  sceneDirty = true;
+  if (typeof updateReadouts === 'function') updateReadouts();
+}
+</script>
+
+
+<script>
+// ===================== SECTION H: three.js scene (r128) =====================
+const DISPLAY_SCALE = 80; // visual exaggeration for orbit/envelope offsets (real values are cm-scale on a 26m-radius ring)
+
+let scene, camera, renderer, controls, ringGroup, ringCurve;
+let elementMeshes = [];
+let orbitMesh = null;
+let envelopeMeshes = { xPlus: null, xMinus: null, yPlus: null, yMinus: null };
+let autoRotateTimeout = null;
+
+const beamMarker = new THREE.Mesh(
+  new THREE.SphereGeometry(0.35, 16, 16),
+  new THREE.MeshBasicMaterial({ color: 0x00ffcc })
+);
+
+function ringPositionAndFrame(s) {
+  const ring = RING_CIRCUMFERENCE_M;
+  const t = (((s % ring) + ring) % ring) / ring;
+  const pos = ringCurve.getPointAt(t);
+  const tangent = ringCurve.getTangentAt(t).clone().normalize();
+  const up = new THREE.Vector3(0, 1, 0);
+  const radial = new THREE.Vector3().crossVectors(tangent, up).normalize();
+  return { pos, tangent, up, radial };
+}
+
+function worldPositionForOffset(s, xOffsetM, yOffsetM) {
+  const f = ringPositionAndFrame(s);
+  return f.pos.clone().addScaledVector(f.radial, xOffsetM).addScaledVector(f.up, yOffsetM);
+}
+
+class OffsetCurve extends THREE.Curve {
+  constructor(sArray, xArray, yArray, scale) {
+    super();
+    this.sArray = sArray;
+    this.xArray = xArray;
+    this.yArray = yArray;
+    this.scale = scale || 1;
+  }
+  getPoint(t, optionalTarget) {
+    const target = optionalTarget || new THREE.Vector3();
+    const s = t * RING_CIRCUMFERENCE_M;
+    const x = sampleArrayAtS(this.sArray, this.xArray, s) * this.scale;
+    const y = sampleArrayAtS(this.sArray, this.yArray, s) * this.scale;
+    target.copy(worldPositionForOffset(s, x, y));
+    return target;
+  }
+}
+
+function buildRingCurve() {
+  const R = RING_CIRCUMFERENCE_M / (2 * Math.PI);
+  const pts = [];
+  for (let i = 0; i < N_SUPERPERIODS; i++) {
+    const angle = (i / N_SUPERPERIODS) * Math.PI * 2;
+    const r = R * (1 + 0.04 * Math.cos(4 * angle)); // subtle octagon-ish faceting, echoing the PDF hall shape
+    pts.push(new THREE.Vector3(r * Math.cos(angle), 0, r * Math.sin(angle)));
+  }
+  ringCurve = new THREE.CatmullRomCurve3(pts, true, 'catmullrom', 0.5);
+}
+
+function elementVisualSpec(el) {
+  switch (el.type) {
+    case 'dipole': return { color: ELEMENT_COLOURS.dipole, h: 0.6, d: 1.0 };
+    case 'quad_focus': return { color: ELEMENT_COLOURS.quad_focus, h: 0.5, d: 0.5 };
+    case 'quad_defocus': return { color: ELEMENT_COLOURS.quad_defocus, h: 0.5, d: 0.5 };
+    case 'trimquad_focus': return { color: ELEMENT_COLOURS.trimquad_focus, h: 0.3, d: 0.3 };
+    case 'trimquad_defocus': return { color: ELEMENT_COLOURS.trimquad_defocus, h: 0.3, d: 0.3 };
+    case 'corrector_h': case 'corrector_v': return { color: ELEMENT_COLOURS.corrector, h: 0.25, d: 0.25 };
+    case 'sextupole': return { color: ELEMENT_COLOURS.sextupole, h: 0.4, d: 0.4 };
+    case 'rf': return { color: ELEMENT_COLOURS.rf, h: 0.35, d: 0.35 };
+    default: return null; // drift — not rendered
+  }
+}
+
+function buildElementMeshes() {
+  elementMeshes.forEach(m => { ringGroup.remove(m.mesh); m.mesh.geometry.dispose(); m.mesh.material.dispose(); });
+  elementMeshes = [];
+  machineState._lattice.forEach(el => {
+    const spec = elementVisualSpec(el);
+    if (!spec) return;
+    const geo = new THREE.BoxGeometry(Math.max(el.length, 0.05), spec.h, spec.d);
+    const mat = new THREE.MeshStandardMaterial({ color: spec.color, emissive: 0x000000, roughness: 0.6, metalness: 0.2 });
+    const mesh = new THREE.Mesh(geo, mat);
+    const sMid = el.s0 + el.length / 2;
+    const frame = ringPositionAndFrame(sMid);
+    mesh.position.copy(frame.pos);
+    const basis = new THREE.Matrix4().makeBasis(frame.tangent, frame.up, frame.radial);
+    mesh.quaternion.setFromRotationMatrix(basis);
+    ringGroup.add(mesh);
+    elementMeshes.push({ mesh, el, mat });
+  });
+}
+
+function updateElementIntensities() {
+  elementMeshes.forEach(({ el, mat }) => {
+    let intensity = 0;
+    if (el.type === 'trimquad_defocus') intensity = Math.min(1, Math.abs(machineState.kqtd) * 20);
+    else if (el.type === 'trimquad_focus') intensity = Math.min(1, Math.abs(machineState.kqtf) * 20);
+    else if (el.type === 'corrector_h') intensity = Math.min(1, Math.abs(machineState.hd_corrector_kicks_rad[el.correctorName] || 0) * 300);
+    else if (el.type === 'corrector_v') intensity = Math.min(1, Math.abs(machineState.vd_corrector_kicks_rad[el.correctorName] || 0) * 300);
+    mat.emissive.setRGB(intensity * 0.6, intensity * 0.6, intensity * 0.15);
+  });
+}
+
+function disposeMesh(m) { if (m) { if (m.geometry) m.geometry.dispose(); } }
+
+function rebuildOrbitAndEnvelopeMeshes() {
+  const eo = machineState._closedOrbit;
+  const env = machineState._envelope;
+
+  if (orbitMesh) { ringGroup.remove(orbitMesh); disposeMesh(orbitMesh); }
+  const orbitCurve = new OffsetCurve(eo.s, eo.x_m, eo.y_m, DISPLAY_SCALE);
+  orbitMesh = new THREE.Mesh(
+    new THREE.TubeGeometry(orbitCurve, 240, 0.09, 6, true),
+    new THREE.MeshBasicMaterial({ color: 0xfff2a8 })
+  );
+  ringGroup.add(orbitMesh);
+
+  ['xPlus','xMinus','yPlus','yMinus'].forEach(k => { if (envelopeMeshes[k]) { ringGroup.remove(envelopeMeshes[k]); disposeMesh(envelopeMeshes[k]); } });
+  const envMat = new THREE.MeshBasicMaterial({ color: 0x66ccff, transparent: true, opacity: 0.35 });
+  const curveXPlus = new OffsetCurve(env.s, env.envXPlus, eo.y_m, DISPLAY_SCALE);
+  const curveXMinus = new OffsetCurve(env.s, env.envXMinus, eo.y_m, DISPLAY_SCALE);
+  const curveYPlus = new OffsetCurve(env.s, eo.x_m, env.envYPlus, DISPLAY_SCALE);
+  const curveYMinus = new OffsetCurve(env.s, eo.x_m, env.envYMinus, DISPLAY_SCALE);
+  envelopeMeshes.xPlus  = new THREE.Mesh(new THREE.TubeGeometry(curveXPlus, 240, 0.05, 6, true), envMat);
+  envelopeMeshes.xMinus = new THREE.Mesh(new THREE.TubeGeometry(curveXMinus, 240, 0.05, 6, true), envMat);
+  envelopeMeshes.yPlus  = new THREE.Mesh(new THREE.TubeGeometry(curveYPlus, 240, 0.05, 6, true), envMat);
+  envelopeMeshes.yMinus = new THREE.Mesh(new THREE.TubeGeometry(curveYMinus, 240, 0.05, 6, true), envMat);
+  ringGroup.add(envelopeMeshes.xPlus, envelopeMeshes.xMinus, envelopeMeshes.yPlus, envelopeMeshes.yMinus);
+}
+
+function initScene() {
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x0a0d14);
+
+  camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 2000);
+  camera.position.set(10, 45, 65);
+
+  renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  document.getElementById('viewport').appendChild(renderer.domElement);
+
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x222233, 0.9));
+  const dir = new THREE.DirectionalLight(0xffffff, 0.8);
+  dir.position.set(40, 80, 20);
+  scene.add(dir);
+
+  buildRingCurve();
+
+  ringGroup = new THREE.Group();
+  scene.add(ringGroup);
+
+  const floor = new THREE.Mesh(
+    new THREE.CircleGeometry(40, 8),
+    new THREE.MeshStandardMaterial({ color: 0x14181f, side: THREE.DoubleSide })
+  );
+  floor.rotation.x = -Math.PI / 2;
+  scene.add(floor);
+
+  scene.add(beamMarker);
+
+  controls = new THREE.OrbitControls(camera, renderer.domElement);
+  controls.target.set(0, 0, 0);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.08;
+  controls.autoRotate = true;
+  controls.autoRotateSpeed = 0.5;
+  controls.addEventListener('start', () => {
+    controls.autoRotate = false;
+    if (autoRotateTimeout) clearTimeout(autoRotateTimeout);
+  });
+  controls.addEventListener('end', () => {
+    autoRotateTimeout = setTimeout(() => { controls.autoRotate = true; }, 4000);
+  });
+
+  window.addEventListener('resize', onResize);
+}
+
+function onResize() {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+}
+</script>
+
+
+<script>
+// ===================== SECTION I: UI wiring (declarative control-spec array) =====================
+function getPath(obj, path) {
+  return path.split('.').reduce((o, k) => (o == null ? undefined : o[k]), obj);
+}
+function setPath(obj, path, value) {
+  const parts = path.split('.');
+  let o = obj;
+  for (let i = 0; i < parts.length - 1; i++) o = o[parts[i]];
+  o[parts[parts.length - 1]] = value;
+}
+
+const CONTROL_GROUPS = [];
+function group(title, controls) { CONTROL_GROUPS.push({ title, controls }); }
+
+group('Cycle Time', [
+  { key: 'cycle_time_ms', label: 'cycle_time_ms', gloss: 'Time through the 10 ms acceleration ramp', min: 0, max: 10, step: 0.05, unit: 'ms' },
+]);
+
+group('Tune Request', [
+  { key: 'tune_method', label: 'tune_method', gloss: 'How trim quads are computed', type: 'select', options: ['di_wright', 'manual'] },
+  { key: 'requested_qx', label: 'requested_qx', gloss: 'Horizontal tune target (Di Wright)', min: 4.0, max: 4.6, step: 0.001, showIf: s => s.tune_method === 'di_wright' },
+  { key: 'requested_qy', label: 'requested_qy', gloss: 'Vertical tune target (Di Wright)', min: 3.5, max: 4.0, step: 0.001, showIf: s => s.tune_method === 'di_wright' },
+]);
+
+group('Trim Quadrupoles (manual mode)', [
+  { key: 'iqtf_A', label: 'iqtf_A', gloss: 'Focusing trim quad current', min: -30, max: 30, step: 0.1, unit: 'A', showIf: s => s.tune_method === 'manual' },
+  { key: 'iqtd_A', label: 'iqtd_A', gloss: 'Defocusing trim quad current', min: -30, max: 30, step: 0.1, unit: 'A', showIf: s => s.tune_method === 'manual' },
+]);
+
+const CORRECTOR_CONTROLS = [];
+HD_CORRECTOR_NAMES.forEach(name => CORRECTOR_CONTROLS.push({
+  key: `hd_corrector_currents_A.${name}`, label: name, gloss: `H corrector current, superperiod ${name[1]}`, min: -50, max: 50, step: 0.5, unit: 'A',
+}));
+VD_CORRECTOR_NAMES.forEach(name => CORRECTOR_CONTROLS.push({
+  key: `vd_corrector_currents_A.${name}`, label: name, gloss: `V corrector current, superperiod ${name[1]}`, min: -50, max: 50, step: 0.5, unit: 'A',
+}));
+group('Corrector Dipoles (7 of 10 superperiods)', CORRECTOR_CONTROLS);
+
+group('Main Magnet Mode', [
+  { key: 'main_magnet_mode', label: 'main_magnet_mode', gloss: 'Bare-lattice quad scaling preset', type: 'select', options: ['rcs_bare', 'srm_bare'] },
+]);
+
+const HARMONIC_CONTROLS = Object.keys(DEFAULT_HARMONICS).map(k => ({
+  key: `harmonic_tunes.${k}`, label: k, gloss: 'Harmonic coefficient — inert in this sim, see About', min: -1, max: 1, step: 0.01,
+}));
+group('Harmonics (inert — see About)', HARMONIC_CONTROLS);
+
+group('Envelope', [
+  { key: 'sigma_scale', label: 'sigma_scale', gloss: 'Envelope width, in units of sigma', min: 1, max: 6, step: 0.5 },
+]);
+
+function fmt(v, digits) {
+  if (v === null || v === undefined || Number.isNaN(v)) return '–';
+  return Number(v).toFixed(digits === undefined ? 3 : digits);
+}
+function setText(id, text) { const el = document.getElementById(id); if (el) el.textContent = text; }
+
+function buildUIPanel() {
+  const root = document.getElementById('controlPanel');
+  root.innerHTML = '';
+  CONTROL_GROUPS.forEach(g => {
+    const details = document.createElement('details');
+    details.open = true;
+    const summary = document.createElement('summary');
+    summary.textContent = g.title;
+    details.appendChild(summary);
+    g.controls.forEach(c => {
+      const row = document.createElement('div');
+      row.className = 'ctrl-row';
+      row.dataset.key = c.key;
+
+      const labelEl = document.createElement('label');
+      labelEl.innerHTML = `<span class="ctrl-name">${c.label}</span><span class="ctrl-gloss">${c.gloss}</span>`;
+      row.appendChild(labelEl);
+
+      let input;
+      if (c.type === 'select') {
+        input = document.createElement('select');
+        c.options.forEach(opt => {
+          const o = document.createElement('option');
+          o.value = opt; o.textContent = opt;
+          input.appendChild(o);
+        });
+        input.value = getPath(machineState, c.key);
+      } else {
+        input = document.createElement('input');
+        input.type = 'range';
+        input.min = c.min; input.max = c.max; input.step = c.step;
+        input.value = getPath(machineState, c.key);
+      }
+      const eventName = c.type === 'select' ? 'change' : 'input';
+      input.addEventListener(eventName, () => {
+        let v = input.value;
+        if (c.type !== 'select') v = parseFloat(v);
+        setPath(machineState, c.key, v);
+        scheduleRecompute();
+      });
+      row.appendChild(input);
+
+      const readout = document.createElement('span');
+      readout.className = 'ctrl-readout';
+      row.appendChild(readout);
+
+      row._input = input; row._readout = readout; row._spec = c;
+      details.appendChild(row);
+    });
+    root.appendChild(details);
+  });
+}
+
+let recomputeScheduled = false;
+function scheduleRecompute() {
+  if (recomputeScheduled) return;
+  recomputeScheduled = true;
+  requestAnimationFrame(() => { recomputeScheduled = false; recomputePhysics(); });
+}
+
+function refreshUIVisibilityAndReadouts() {
+  document.querySelectorAll('.ctrl-row').forEach(row => {
+    const c = row._spec;
+    const visible = c.showIf ? c.showIf(machineState) : true;
+    row.style.display = visible ? '' : 'none';
+    const val = getPath(machineState, c.key);
+    if (c.type !== 'select') {
+      row._readout.textContent = fmt(val, c.step && c.step < 1 ? 3 : 2) + (c.unit ? ' ' + c.unit : '');
+    }
+  });
+}
+
+let resonanceLinesCache = null;
+const TUNE_DIAGRAM_XLIMS = [4.0, 4.6];
+const TUNE_DIAGRAM_YLIMS = [3.5, 4.0];
+
+function drawTuneDiagram() {
+  const canvas = document.getElementById('tuneDiagram');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  if (!resonanceLinesCache) {
+    resonanceLinesCache = generateResonanceLines(TUNE_DIAGRAM_XLIMS, TUNE_DIAGRAM_YLIMS, [1, 2, 3, 4], 10);
+  }
+  const toPx = (qx, qy) => [
+    (qx - TUNE_DIAGRAM_XLIMS[0]) / (TUNE_DIAGRAM_XLIMS[1] - TUNE_DIAGRAM_XLIMS[0]) * W,
+    H - (qy - TUNE_DIAGRAM_YLIMS[0]) / (TUNE_DIAGRAM_YLIMS[1] - TUNE_DIAGRAM_YLIMS[0]) * H,
+  ];
+
+  resonanceLinesCache.forEach(line => {
+    const p0 = toPx(line.x0, line.y0);
+    const p1 = toPx(line.x1, line.y1);
+    ctx.strokeStyle = line.systematic ? 'rgba(220,80,80,0.8)' : 'rgba(90,140,220,0.5)';
+    ctx.lineWidth = line.systematic ? 1.4 : 0.7;
+    ctx.setLineDash(line.skew ? [4, 3] : []);
+    ctx.beginPath(); ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]); ctx.stroke();
+  });
+  ctx.setLineDash([]);
+
+  tuneTrail.forEach((p, i) => {
+    const px = toPx(p.qx, p.qy);
+    const alpha = (i + 1) / tuneTrail.length;
+    ctx.fillStyle = `rgba(0,255,200,${alpha * 0.6})`;
+    ctx.beginPath(); ctx.arc(px[0], px[1], 2, 0, Math.PI * 2); ctx.fill();
+  });
+  if (tuneTrail.length) {
+    const last = tuneTrail[tuneTrail.length - 1];
+    const px = toPx(last.qx, last.qy);
+    ctx.fillStyle = '#00ffc8';
+    ctx.beginPath(); ctx.arc(px[0], px[1], 4, 0, Math.PI * 2); ctx.fill();
+  }
+}
+
+function updateReadouts() {
+  const bs = machineState.beam_state;
+  setText('ro-qx', fmt(machineState._tuneX.q, 4));
+  setText('ro-qy', fmt(machineState._tuneY.q, 4));
+  setText('ro-diwright', machineState._diWrightImpliedQx != null
+    ? `${fmt(machineState._diWrightImpliedQx, 3)}, ${fmt(machineState._diWrightImpliedQy, 3)}` : '–');
+  setText('ro-energy', fmt(bs.kinetic_energy_MeV, 1) + ' MeV');
+  setText('ro-brho', fmt(bs.brho_Tm, 4) + ' T·m');
+
+  const co = machineState._closedOrbit;
+  const maxOrbit = Math.max(
+    ...co.x_m.map(v => Math.abs(v)),
+    ...co.y_m.map(v => Math.abs(v))
+  ) * 1000;
+  setText('ro-orbit', fmt(maxOrbit, 2) + ' mm');
+  setText('ro-margin', fmt(machineState._apertureMargin * 1000, 1) + ' mm (illustrative)');
+
+  const badge = document.getElementById('ro-resbadge');
+  badge.style.display = (co.nearResonanceX || co.nearResonanceY) ? 'inline-block' : 'none';
+
+  refreshUIVisibilityAndReadouts();
+  drawTuneDiagram();
+}
+</script>
+
+
+<script>
+// ===================== SECTION J: animation loop (decoupled from physics recompute) =====================
+let isPlaying = true;
+let speedMultiplier = 0.15; // artificial turns/sec — real ISIS revolution is ~us-scale, shown separately as a stat
+let totalTurns = 0;
+let oscillationPhaseX = 0, oscillationPhaseY = 0;
+const clock = new THREE.Clock();
+const ENVELOPE_DISPLAY_EMIT = DEFAULT_EMITTANCE_PI_MM_MRAD * 1e-6;
+
+function updateBeamMarker() {
+  const beamPhase = totalTurns % 1;
+  const s = beamPhase * RING_CIRCUMFERENCE_M;
+  const co = machineState._closedOrbit;
+  const orbitX = sampleArrayAtS(co.s, co.x_m, s);
+  const orbitY = sampleArrayAtS(co.s, co.y_m, s);
+  const t0x = interpTwiss(machineState._twissX, s);
+  const t0y = interpTwiss(machineState._twissY, s);
+  const wobbleX = Math.sqrt(Math.max(0, t0x.beta * ENVELOPE_DISPLAY_EMIT)) * Math.cos(t0x.phi + oscillationPhaseX);
+  const wobbleY = Math.sqrt(Math.max(0, t0y.beta * ENVELOPE_DISPLAY_EMIT)) * Math.cos(t0y.phi + oscillationPhaseY);
+  const xOffset = (orbitX + wobbleX) * DISPLAY_SCALE;
+  const yOffset = (orbitY + wobbleY) * DISPLAY_SCALE;
+  beamMarker.position.copy(worldPositionForOffset(s, xOffset, yOffset));
+}
+
+function updatePlaybackReadout() {
+  const bs = machineState.beam_state;
+  const revTimeS = RING_CIRCUMFERENCE_M / (bs.beta * SPEED_OF_LIGHT_M_S);
+  setText('ro-laptime', (revTimeS * 1e6).toFixed(3) + ' µs/turn (physical)');
+  setText('ro-laps', Math.floor(totalTurns) + ' (' + (totalTurns % 1).toFixed(2) + ' into current lap)');
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.1);
+
+  if (sceneDirty) {
+    buildElementMeshes();
+    rebuildOrbitAndEnvelopeMeshes();
+    sceneDirty = false;
+  }
+  updateElementIntensities();
+
+  if (isPlaying) {
+    totalTurns += dt * speedMultiplier;
+    oscillationPhaseX += dt * speedMultiplier * 2 * Math.PI * machineState._tuneX.q;
+    oscillationPhaseY += dt * speedMultiplier * 2 * Math.PI * machineState._tuneY.q;
+  }
+  updateBeamMarker();
+  updatePlaybackReadout();
+
+  controls.update();
+  renderer.render(scene, camera);
+}
+</script>
+
+
+<script>
+// ===================== SECTION K: bootstrap =====================
+document.getElementById('playPauseBtn').addEventListener('click', () => {
+  isPlaying = !isPlaying;
+  document.getElementById('playPauseBtn').textContent = isPlaying ? 'Pause' : 'Play';
+});
+document.getElementById('speedSlider').addEventListener('input', (e) => {
+  speedMultiplier = parseFloat(e.target.value);
+});
+function syncCycleTimeUI() {
+  const row = document.querySelector('.ctrl-row[data-key="cycle_time_ms"]');
+  if (row) row._input.value = machineState.cycle_time_ms;
+}
+document.getElementById('resetInjectionBtn').addEventListener('click', () => {
+  machineState.cycle_time_ms = 0; syncCycleTimeUI(); scheduleRecompute();
+});
+document.getElementById('resetExtractionBtn').addEventListener('click', () => {
+  machineState.cycle_time_ms = 10; syncCycleTimeUI(); scheduleRecompute();
+});
+
+buildUIPanel();
+initScene();
+recomputePhysics();
+animate();
+
+(function sanityCheck() {
+  const total = machineState._lattice.reduce((a, e) => a + e.length, 0);
+  console.log('[ISIS sim] lattice total length:', total.toFixed(6), 'vs expected', RING_CIRCUMFERENCE_M);
+  console.log('[ISIS sim] Qx (simulated):', machineState._tuneX.q.toFixed(4), ' Qy (simulated):', machineState._tuneY.q.toFixed(4));
+})();
+</script>
+
+
+</body>
+</html>
