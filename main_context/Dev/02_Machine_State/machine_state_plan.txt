@@ -1,0 +1,320 @@
+# Machine State Layer
+
+Purpose:
+
+- Define the complete machine state at one cycle time
+- Use `cycle_time.py` for beam parameters
+- Store all GUI/backend settings in one Python object
+- Write one timestamped MAD-X-readable override/log file
+- Keep the MAD-X lattice files unchanged
+
+---
+
+# Files
+
+```text
+machine_state.py
+machine_state_defaults.py
+machine_state_writer.py
+tune_control.py
+correctors.py
+```
+
+---
+
+# machine_state.py
+
+Main dataclass:
+
+```python
+MachineState
+```
+
+Stores:
+
+```text
+timestamp
+cycle_time_ms
+beam_state
+
+main_magnet_mode
+main_magnet_scaling
+
+tune_method
+
+requested_qx
+requested_qy
+
+base_qx
+base_qy
+
+kqtd
+kqtf
+
+harmonic_tunes
+
+error_table_path
+
+hd_corrector_kicks_rad
+vd_corrector_kicks_rad
+
+hd_corrector_currents_A
+vd_corrector_currents_A
+```
+
+Main methods:
+
+```python
+MachineState.from_defaults()
+
+MachineState.calculate_trim_quad_strengths()
+
+MachineState.update_harmonics()
+
+MachineState.update_correctors()
+
+MachineState.summary_dict()
+```
+
+Responsibilities:
+
+```text
+- Hold all machine settings for one time point
+- Use beam state from cycle_time.py
+- Calculate kqtd/kqtf if required
+- Store both corrector kicks and currents
+- Store harmonic tune settings
+- Store applied MAD-X error table
+- Act as the GUI/backend state object
+```
+
+---
+
+# machine_state_defaults.py
+
+Purpose:
+
+```text
+- Store default values
+- Store standard variable names
+- Store standard machine presets
+```
+
+Contains:
+
+```python
+RCS_BARE_SCALING
+SRM_BARE_SCALING
+
+DEFAULT_HARMONICS
+
+HD_CORRECTOR_NAMES
+VD_CORRECTOR_NAMES
+
+DEFAULT_HD_CORRECTOR_KICKS_RAD
+DEFAULT_VD_CORRECTOR_KICKS_RAD
+
+DEFAULT_HD_CORRECTOR_CURRENTS_A
+DEFAULT_VD_CORRECTOR_CURRENTS_A
+
+DEFAULT_QX
+DEFAULT_QY
+
+DEFAULT_TUNE_METHOD
+```
+
+Responsibilities:
+
+```text
+- Central location for defaults
+- Avoid hard-coded values throughout codebase
+- Define standard GUI starting state
+```
+
+---
+
+# tune_control.py
+
+Purpose:
+
+```text
+- Handle operational tune-setting logic
+- Convert requested tunes into kqtd/kqtf
+```
+
+Initial supported methods:
+
+```text
+1. Di Wright tune control equations
+2. MAD-X matching (later)
+```
+
+Functions:
+
+```python
+tune_to_trim_quad_current_di()
+
+current_to_strength()
+
+calculate_kqtf_kqtd_di()
+```
+
+Later:
+
+```python
+calculate_kqtf_kqtd_madx_match()
+```
+
+Responsibilities:
+
+```text
+- Convert Qx/Qy requests into trim quad strengths
+- Use beam rigidity and normalised momentum
+- Support future operational tune-control modes
+```
+
+---
+
+# correctors.py
+
+Purpose:
+
+```text
+- Handle HD/VD corrector state
+- Convert between currents and MAD-X kicks
+```
+
+Stores BOTH:
+
+```text
+- MAD-X kicks in radians
+- Controls-system currents in amperes
+```
+
+Functions:
+
+```python
+default_hd_corrector_kicks_rad()
+
+default_vd_corrector_kicks_rad()
+
+default_hd_corrector_currents_A()
+
+default_vd_corrector_currents_A()
+
+currents_to_kicks_rad()
+
+kicks_rad_to_currents_A()
+
+build_corrector_state()
+```
+
+Responsibilities:
+
+```text
+- Maintain operational corrector state
+- Allow future GUI current display
+- Allow future orbit correction suggestions
+- Convert between controls units and MAD-X units
+```
+
+---
+
+# machine_state_writer.py
+
+Purpose:
+
+```text
+- Write timestamped MAD-X-readable machine-state files
+- Create logged machine-state snapshots
+```
+
+Functions:
+
+```python
+make_machine_state_filename()
+
+write_machine_state_file()
+
+write_assignment()
+
+write_comment_block()
+```
+
+Output example:
+
+```madx
+! ISIS machine state
+! timestamp = ...
+! cycle_time_ms = ...
+
+beam, particle=proton, pc=...;
+
+brho := ...;
+
+qd_scale := ...;
+qf_scale := ...;
+
+kqtd := ...;
+kqtf := ...;
+
+D7SIN := ...;
+D7COS := ...;
+
+r0hd1_kick := ...;
+r0vd1_kick := ...;
+
+! r0hd1_current_A = ...
+! r0vd1_current_A = ...
+```
+
+Responsibilities:
+
+```text
+- Write complete machine state
+- Write all values even if default
+- Produce executable MAD-X override file
+- Produce human-readable log record
+```
+
+---
+
+# Initial Workflow
+
+```python
+from cycle_time import RCSRamp
+from machine_state import MachineState
+from machine_state_writer import write_machine_state_file
+
+ramp = RCSRamp(top_energy_MeV=800.0)
+
+beam_state = ramp.state_at(3.0)
+
+machine_state = MachineState.from_defaults(
+    beam_state=beam_state,
+    main_magnet_mode="srm_bare",
+    requested_qx=4.31,
+    requested_qy=3.76,
+    tune_method="di_wright",
+)
+
+write_machine_state_file(
+    machine_state,
+    output_dir="./machine_states",
+)
+```
+
+Output:
+
+```text
+machine_states/
+    machine_state_20260514_153012_t3p000ms.strength
+```
+
+This file acts as:
+
+```text
+- MAD-X override file
+- GUI snapshot
+- logged machine-state record
+```

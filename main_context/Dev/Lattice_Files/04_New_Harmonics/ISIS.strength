@@ -1,0 +1,366 @@
+//ISIS Strength File
+
+! Global quadrupole scaling for bare tune matching
+!---------------------------------------------------------------
+
+main_dipole_scale := 1.0;
+fringe_dipole_scale := 1.0;
+fringe_dipole_neg_scale := 1.0;
+
+qd_scale := 1.0;
+qdfr_scale := 1.0;
+qf_scale := 1.0;
+qffr_scale := 1.0;
+qds_scale := 1.0;
+qdsfr_scale := 1.0;
+
+! MAIN DIPOLES (combined function)
+! --------------------------------------------------------------
+
+! Dipole components
+
+dip1_angle:=0.0085680;
+dip2_angle:=0.1428000;
+dip3_angle:=0.1428000;
+dip4_angle:=0.1428000;
+dip5_angle:=0.11428000;
+dip6_angle:=0.0085680;
+
+! Quadrupole components
+
+dip1_k1:= (0.06782332 * main_dipole_scale);
+dip2_k1:= (0.06782332 * main_dipole_scale);
+dip3_k1:= (0.06782332 * main_dipole_scale);
+dip4_k1:= (0.06782332 * main_dipole_scale);
+dip5_k1:= (0.06782332 * main_dipole_scale);
+dip6_k1:= (0.06782332 * main_dipole_scale);
+
+! Fringes
+
+dipfr1_angle:=0.000097;
+dipfr2_angle:=.0011260;
+dipfr3_angle:=.0070260;
+dipfr4_angle:=.0017570;
+dipfr5_angle:=.0242660;
+dipfr6_angle:=.0242660;
+dipfr7_angle:=.0017570;
+dipfr8_angle:=.0070260;
+dipfr9_angle:=.0011260;
+dipfr10_angle:=.0000970;
+
+! 10cm split
+
+dip2_0_angle:=0.01428;
+dip2_1_angle:=0.01428;
+dip2_2_angle:=0.01428;
+dip2_3_angle:=0.01428;
+dip2_4_angle:=0.01428;
+dip2_5_angle:=0.01428;
+dip2_6_angle:=0.01428;
+dip2_7_angle:=0.01428;
+dip2_8_angle:=0.01428;
+dip2_9_angle:=0.01428;
+
+dip3_0_angle:=0.01428;
+dip3_1_angle:=0.01428;
+dip3_2_angle:=0.01428;
+dip3_3_angle:=0.01428;
+dip3_4_angle:=0.01428;
+dip3_5_angle:=0.01428;
+dip3_6_angle:=0.01428;
+dip3_7_angle:=0.01428;
+dip3_8_angle:=0.01428;
+dip3_9_angle:=0.01428;
+
+dip4_0_angle:=0.01428;
+dip4_1_angle:=0.01428;
+dip4_2_angle:=0.01428;
+dip4_3_angle:=0.01428;
+dip4_4_angle:=0.01428;
+dip4_5_angle:=0.01428;
+dip4_6_angle:=0.01428;
+dip4_7_angle:=0.01428;
+dip4_8_angle:=0.01428;
+dip4_9_angle:=0.01428;
+
+dip5_0_angle:=0.01428;
+dip5_1_angle:=0.01428;
+dip5_2_angle:=0.01428;
+dip5_3_angle:=0.01428;
+dip5_4_angle:=0.01428;
+dip5_5_angle:=0.01428;
+dip5_6_angle:=0.01428;
+dip5_7_angle:=0.01428;
+
+dipfr2_0_angle:=0.000563;
+dipfr2_1_angle:=0.000563;
+dipfr3_0_angle:=0.00439125;
+dipfr3_1_angle:=0.00263475;
+dipfr5_0_angle:=0.012133;
+dipfr5_1_angle:=0.012133;
+dipfr6_0_angle:=0.012133;
+dipfr6_1_angle:=0.012133;
+dipfr8_1_angle:=0.00439125;
+dipfr8_0_angle:=0.00263475;
+dipfr9_0_angle:=0.000563;
+dipfr9_1_angle:=0.000563;
+
+dipfr1_k1:= (-0.00106696 * fringe_dipole_neg_scale);
+dipfr2_k1:= (-0.00081196 * fringe_dipole_neg_scale);
+dipfr3_k1:= (0.01101772 * fringe_dipole_scale);
+dipfr4_k1:= (0.01101772 * fringe_dipole_scale);
+dipfr5_k1:= (0.07106712 * fringe_dipole_scale);
+dipfr6_k1:= (0.07106712 * fringe_dipole_scale);
+dipfr7_k1:= (0.01101772 * fringe_dipole_scale);
+dipfr8_k1:= (0.01101772 * fringe_dipole_scale);
+dipfr9_k1:= (-0.00081196 * fringe_dipole_neg_scale);
+dipfr10_k1:= (-0.00106696 * fringe_dipole_neg_scale);
+
+! INJECTION DIPOLES
+! --------------------------------------------------------------
+idip1_angle:=0.0;
+idip2_angle:=0.0;
+idip3_angle:=0.0;
+idip4_angle:=0.0;
+
+! STEERING CORRECTORS (KICKERS)
+! --------------------------------------------------------------
+
+r0hd1_kick:=0.0;
+r2hd1_kick:=0.0;
+r3hd1_kick:=0.0;
+r4hd1_kick:=0.0;
+r5hd1_kick:=0.0;
+r7hd1_kick:=0.0;
+r9hd1_kick:=0.0;
+
+r0vd1_kick:=0.0;
+r2vd1_kick:=0.0;
+r3vd1_kick:=0.0;
+r4vd1_kick:=0.0;
+r5vd1_kick:=0.0;
+r7vd1_kick:=0.0;
+r9vd1_kick:=0.0;
+
+
+! ADDITIONAL ORBIT CORRECTORS (KICKERS)
+! --------------------------------------------------------------
+
+! QF quad kickers
+R0QF_HKICK:=0.0;
+R1QF_HKICK:=0.0;
+R2QF_HKICK:=0.0;
+R3QF_HKICK:=0.0;
+R4QF_HKICK:=0.0;
+R5QF_HKICK:=0.0;
+R6QF_HKICK:=0.0;
+R7QF_HKICK:=0.0;
+R8QF_HKICK:=0.0;
+R9QF_HKICK:=0.0;
+R0QF_VKICK:=0.0;
+R1QF_VKICK:=0.0;
+R2QF_VKICK:=0.0;
+R3QF_VKICK:=0.0;
+R4QF_VKICK:=0.0;
+R5QF_VKICK:=0.0;
+R6QF_VKICK:=0.0;
+R7QF_VKICK:=0.0;
+R8QF_VKICK:=0.0;
+R9QF_VKICK:=0.0;
+
+! QD quad kickers
+R0QD_HKICK:=0.0;
+R1QD_HKICK:=0.0;
+R2QD_HKICK:=0.0;
+R3QD_HKICK:=0.0;
+R4QD_HKICK:=0.0;
+R5QD_HKICK:=0.0;
+R6QD_HKICK:=0.0;
+R7QD_HKICK:=0.0;
+R8QD_HKICK:=0.0;
+R9QD_HKICK:=0.0;
+R0QD_VKICK:=0.0;
+R1QD_VKICK:=0.0;
+R2QD_VKICK:=0.0;
+R3QD_VKICK:=0.0;
+R4QD_VKICK:=0.0;
+R5QD_VKICK:=0.0;
+R6QD_VKICK:=0.0;
+R7QD_VKICK:=0.0;
+R8QD_VKICK:=0.0;
+R9QD_VKICK:=0.0;
+
+! Singlet quad kickers
+R0QDS_HKICK:=0.0;
+R1QDS_HKICK:=0.0;
+R2QDS_HKICK:=0.0;
+R3QDS_HKICK:=0.0;
+R4QDS_HKICK:=0.0;
+R5QDS_HKICK:=0.0;
+R6QDS_HKICK:=0.0;
+R7QDS_HKICK:=0.0;
+R8QDS_HKICK:=0.0;
+R9QDS_HKICK:=0.0;
+R0QDS_VKICK:=0.0;
+R1QDS_VKICK:=0.0;
+R2QDS_VKICK:=0.0;
+R3QDS_VKICK:=0.0;
+R4QDS_VKICK:=0.0;
+R5QDS_VKICK:=0.0;
+R6QDS_VKICK:=0.0;
+R7QDS_VKICK:=0.0;
+R8QDS_VKICK:=0.0;
+R9QDS_VKICK:=0.0;
+
+! Main dipole kickers
+R0DIP_HKICK:=0.0;
+R1DIP_HKICK:=0.0;
+R2DIP_HKICK:=0.0;
+R3DIP_HKICK:=0.0;
+R4DIP_HKICK:=0.0;
+R5DIP_HKICK:=0.0;
+R6DIP_HKICK:=0.0;
+R7DIP_HKICK:=0.0;
+R8DIP_HKICK:=0.0;
+R9DIP_HKICK:=0.0;
+R0DIP_VKICK:=0.0;
+R1DIP_VKICK:=0.0;
+R2DIP_VKICK:=0.0;
+R3DIP_VKICK:=0.0;
+R4DIP_VKICK:=0.0;
+R5DIP_VKICK:=0.0;
+R6DIP_VKICK:=0.0;
+R7DIP_VKICK:=0.0;
+R8DIP_VKICK:=0.0;
+R9DIP_VKICK:=0.0;
+
+! MAIN QUADS
+! --------------------------------------------------------------
+
+! Defocus QD
+
+qd_k1 := (-0.63633192 * qd_scale);
+qdfr1_k1 := (-0.07954129 * qdfr_scale);
+qdfr2_k1 := (-0.23862467 * qdfr_scale);
+qdfr3_k1 := (-0.39770806 * qdfr_scale);
+qdfr4_k1 := (-0.55679063 * qdfr_scale);
+qdfr5_k1 := (-0.55679063 * qdfr_scale);
+qdfr6_k1 := (-0.39770806 * qdfr_scale);
+qdfr7_k1 := (-0.23862467 * qdfr_scale);
+qdfr8_k1 := (-0.07954129 * qdfr_scale);
+
+! Focus QF
+
+qf_k1 := (0.63663711 * qf_scale);
+qffr1_k1 := (0.07957934 * qffr_scale);
+qffr2_k1 := (0.23873962 * qffr_scale);
+qffr3_k1 := (0.39789910 * qffr_scale);
+qffr4_k1 := (0.55705778 * qffr_scale);
+qffr5_k1 := (0.55705778 * qffr_scale);
+qffr6_k1 := (0.39789910 * qffr_scale);
+qffr7_k1 := (0.23873962 * qffr_scale);
+qffr8_k1 := (0.07957934 * qffr_scale);
+
+! Singlet Defocus QDS
+
+qds_k1 := (-0.72731997 * qds_scale);
+qdsfr1_k1 := (-0.09091520 * qdsfr_scale);
+qdsfr2_k1 := (-0.27274479 * qdsfr_scale);
+qdsfr3_k1 := (-0.45457519 * qdsfr_scale);
+qdsfr4_k1 := (-0.63640478 * qdsfr_scale);
+qdsfr5_k1 := (-0.63640478 * qdsfr_scale);
+qdsfr6_k1 := (-0.45457519 * qdsfr_scale);
+qdsfr7_k1 := (-0.27274479 * qdsfr_scale);
+qdsfr8_k1 := (-0.09091520 * qdsfr_scale);
+
+! TRIM QUADRUPOLES
+! --------------------------------------------------------------
+// nominal numbers for 4.31 and 3.83 lattice
+kqtd := 0.0; !0.00612445291411194;    
+kqtf := 0.0; !-0.011601480427333917;
+
+kqtd_0 := kqtd + HER0qtd;
+kqtd_1 := kqtd + HER1qtd;
+kqtd_2 := kqtd + HER2qtd;
+kqtd_3 := kqtd + HER3qtd;
+kqtd_4 := kqtd + HER4qtd;
+kqtd_5 := kqtd + HER5qtd;
+kqtd_6 := kqtd + HER6qtd;
+kqtd_7 := kqtd + HER7qtd;
+kqtd_8 := kqtd + HER8qtd;
+kqtd_9 := kqtd + HER9qtd;
+    
+kqtf_0:= kqtf + HER0qtf;
+kqtf_1:= kqtf + HER1qtf;
+kqtf_2:= kqtf + HER2qtf;
+kqtf_3:= kqtf + HER3qtf;
+kqtf_4:= kqtf + HER4qtf;
+kqtf_5:= kqtf + HER5qtf;
+kqtf_6:= kqtf + HER6qtf;
+kqtf_7:= kqtf + HER7qtf;
+kqtf_8:= kqtf + HER8qtf;
+kqtf_9:= kqtf + HER9qtf;
+
+! SEXTUPOLE
+! --------------------------------------------------------------
+ksext := 0.0;
+
+! HARMONIC FUNCTIONS
+! --------------------------------------------------------------
+
+! Constants
+TQGCAL:=1.997E-3; ! TQ gradient calibration per amp in T m-1 A-1, divide by B-rho for k
+!HQ are not normalised to momentum 
+HQCAL:=1.25; ! Scaling factor for HQ for HQ=1 (multiply by value -10 -> +10 for D7cos etc)
+brho:=1.23; !injection value - change for later
+
+! Values as input on control system
+D7SIN=0.0;
+D7COS=0.0;
+D8SIN=0.0;
+D8COS=0.0;
+F8SIN=0.0;
+F8COS=0.0;
+! Useful for future
+F9SIN=0.0;
+F9COS=0.0;
+
+! Amplitudes and Harmonics for QTD
+da1:=D7COS*HQCAL*TQGCAL/brho;
+db1:=D7SIN*HQCAL*TQGCAL/brho;
+dhn1:=7;
+
+da2:=D8COS*HQCAL*TQGCAL/brho;
+db2:=D8SIN*HQCAL*TQGCAL/brho;
+dhn2:=8;
+
+! Amplitude and Harmonic for QTF
+fa1:=F8COS*HQCAL*TQGCAL/brho;
+fb1:=F8SIN*HQCAL*TQGCAL/brho;
+fhn1:=8;
+
+fa2:=F9COS*HQCAL*TQGCAL/brho; !doesn't exist in control system, but useful for future/models
+fb2:=F9SIN*HQCAL*TQGCAL/brho;
+fhn2:=9;
+
+HER0qtd:=(da1*cos(dhn1*(0/10)*2*PI))+(db1*sin(dhn1*(0/10)*2*PI))+(da2*cos(dhn2*(0/10)*2*PI))+(db2*sin(dhn2*(0/10)*2*PI));
+HER1qtd:=(da1*cos(dhn1*(1/10)*2*PI))+(db1*sin(dhn1*(1/10)*2*PI))+(da2*cos(dhn2*(1/10)*2*PI))+(db2*sin(dhn2*(1/10)*2*PI));
+HER2qtd:=(da1*cos(dhn1*(2/10)*2*PI))+(db1*sin(dhn1*(2/10)*2*PI))+(da2*cos(dhn2*(2/10)*2*PI))+(db2*sin(dhn2*(2/10)*2*PI));
+HER3qtd:=(da1*cos(dhn1*(3/10)*2*PI))+(db1*sin(dhn1*(3/10)*2*PI))+(da2*cos(dhn2*(3/10)*2*PI))+(db2*sin(dhn2*(3/10)*2*PI));
+HER4qtd:=(da1*cos(dhn1*(4/10)*2*PI))+(db1*sin(dhn1*(4/10)*2*PI))+(da2*cos(dhn2*(4/10)*2*PI))+(db2*sin(dhn2*(4/10)*2*PI));
+HER5qtd:=(da1*cos(dhn1*(5/10)*2*PI))+(db1*sin(dhn1*(5/10)*2*PI))+(da2*cos(dhn2*(5/10)*2*PI))+(db2*sin(dhn2*(5/10)*2*PI));
+HER6qtd:=(da1*cos(dhn1*(6/10)*2*PI))+(db1*sin(dhn1*(6/10)*2*PI))+(da2*cos(dhn2*(6/10)*2*PI))+(db2*sin(dhn2*(6/10)*2*PI));
+HER7qtd:=(da1*cos(dhn1*(7/10)*2*PI))+(db1*sin(dhn1*(7/10)*2*PI))+(da2*cos(dhn2*(7/10)*2*PI))+(db2*sin(dhn2*(7/10)*2*PI));
+HER8qtd:=(da1*cos(dhn1*(8/10)*2*PI))+(db1*sin(dhn1*(8/10)*2*PI))+(da2*cos(dhn2*(8/10)*2*PI))+(db2*sin(dhn2*(8/10)*2*PI));
+HER9qtd:=(da1*cos(dhn1*(9/10)*2*PI))+(db1*sin(dhn1*(9/10)*2*PI))+(da2*cos(dhn2*(9/10)*2*PI))+(db2*sin(dhn2*(9/10)*2*PI));
+
+HER0qtf:=(fa1*cos(fhn1*(0/10)*2*PI))+(fb1*sin(fhn1*(0/10)*2*PI))+(fa2*cos(fhn2*(0/10)*2*PI))+(fb2*sin(fhn2*(0/10)*2*PI));
+HER1qtf:=(fa1*cos(fhn1*(1/10)*2*PI))+(fb1*sin(fhn1*(1/10)*2*PI))+(fa2*cos(fhn2*(1/10)*2*PI))+(fb2*sin(fhn2*(1/10)*2*PI));
+HER2qtf:=(fa1*cos(fhn1*(2/10)*2*PI))+(fb1*sin(fhn1*(2/10)*2*PI))+(fa2*cos(fhn2*(2/10)*2*PI))+(fb2*sin(fhn2*(2/10)*2*PI));
+HER3qtf:=(fa1*cos(fhn1*(3/10)*2*PI))+(fb1*sin(fhn1*(3/10)*2*PI))+(fa2*cos(fhn2*(3/10)*2*PI))+(fb2*sin(fhn2*(3/10)*2*PI));
+HER4qtf:=(fa1*cos(fhn1*(4/10)*2*PI))+(fb1*sin(fhn1*(4/10)*2*PI))+(fa2*cos(fhn2*(4/10)*2*PI))+(fb2*sin(fhn2*(4/10)*2*PI));
+HER5qtf:=(fa1*cos(fhn1*(5/10)*2*PI))+(fb1*sin(fhn1*(5/10)*2*PI))+(fa2*cos(fhn2*(5/10)*2*PI))+(fb2*sin(fhn2*(5/10)*2*PI));
+HER6qtf:=(fa1*cos(fhn1*(6/10)*2*PI))+(fb1*sin(fhn1*(6/10)*2*PI))+(fa2*cos(fhn2*(6/10)*2*PI))+(fb2*sin(fhn2*(6/10)*2*PI));
+HER7qtf:=(fa1*cos(fhn1*(7/10)*2*PI))+(fb1*sin(fhn1*(7/10)*2*PI))+(fa2*cos(fhn2*(7/10)*2*PI))+(fb2*sin(fhn2*(7/10)*2*PI));
+HER8qtf:=(fa1*cos(fhn1*(8/10)*2*PI))+(fb1*sin(fhn1*(8/10)*2*PI))+(fa2*cos(fhn2*(8/10)*2*PI))+(fb2*sin(fhn2*(8/10)*2*PI));
+HER9qtf:=(fa1*cos(fhn1*(9/10)*2*PI))+(fb1*sin(fhn1*(9/10)*2*PI))+(fa2*cos(fhn2*(9/10)*2*PI))+(fb2*sin(fhn2*(9/10)*2*PI));

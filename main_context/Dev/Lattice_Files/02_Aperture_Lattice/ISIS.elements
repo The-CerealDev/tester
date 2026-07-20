@@ -1,0 +1,563 @@
+! DRIFTS
+! --------------------------------------------------------------
+
+s1      : drift, l=1.31;
+s2      : drift, l=1.2394;
+s3      : drift, l=0.09765;   
+s4      : drift, l=0.09765;
+s5      : drift, l=0.0967;
+s6      : drift, l=1.0;
+s7      : drift, l=1.0;
+s8      : drift, l=1.0;
+s9      : drift, l=1.0;
+s10     : drift, l=1.2445;
+s11     : drift, l=.031582;
+
+
+!d0 : drift, l=2.5494;
+!d1 : drift, l=0.09765;
+!d2 : drift, l=0.09765;
+!d3 : drift, l=0.0967;
+!d4 : drift, l=5.2445;
+!d5 : drift, l=0.031582;
+d_qt : drift, l=0.1535;
+
+d0 : rcollimator, l=2.5494;
+d1 : rcollimator, l=0.09765;
+d2 : rcollimator, l=0.09765;
+d3 : rcollimator, l=0.0967;
+d4 : rcollimator, l=5.2445;
+d5 : rcollimator, l=0.031582;
+
+! 10 cm splitting of long drifts 
+! which actually go through RF / diags / sextupoles / diags etc
+d0_00: rcollimator, l=0.1;
+d0_01: rcollimator, l=0.1;
+d0_02: rcollimator, l=0.1;
+d0_03: rcollimator, l=0.1;
+d0_04: rcollimator, l=0.1;
+d0_05: rcollimator, l=0.1;
+d0_06: rcollimator, l=0.1;
+d0_07: rcollimator, l=0.1;
+d0_08: rcollimator, l=0.1;
+d0_09: rcollimator, l=0.1;
+d0_10: rcollimator, l=0.1;
+d0_11: rcollimator, l=0.1;
+d0_12: rcollimator, l=0.1;
+d0_13: rcollimator, l=0.1;
+d0_14: rcollimator, l=0.1;
+d0_15: rcollimator, l=0.1;
+d0_16: rcollimator, l=0.1;
+d0_17: rcollimator, l=0.1;
+d0_18: rcollimator, l=0.1;
+d0_19: rcollimator, l=0.1;
+d0_20: rcollimator, l=0.1;
+d0_21: rcollimator, l=0.1;
+d0_22: rcollimator, l=0.1;
+d0_23: rcollimator, l=0.1;
+d0_24: rcollimator, l=0.1;
+d0_25: rcollimator, l=0.0494;  ! Adjusted to cover the remaining length
+
+d4_00: rcollimator, l=0.1;
+d4_01: rcollimator, l=0.1;
+d4_02: rcollimator, l=0.1;
+d4_03: rcollimator, l=0.1;
+d4_04: rcollimator, l=0.1;
+d4_05: rcollimator, l=0.1;
+d4_06: rcollimator, l=0.1;
+d4_07: rcollimator, l=0.1;
+d4_08: rcollimator, l=0.1;
+d4_09: rcollimator, l=0.1;
+d4_10: rcollimator, l=0.1;
+d4_11: rcollimator, l=0.1;
+d4_12: rcollimator, l=0.1;
+d4_13: rcollimator, l=0.1;
+d4_14: rcollimator, l=0.1;
+d4_15: rcollimator, l=0.1;
+d4_16: rcollimator, l=0.1;
+d4_17: rcollimator, l=0.1;
+d4_18: rcollimator, l=0.1;
+d4_19: rcollimator, l=0.1;
+d4_20: rcollimator, l=0.1;
+d4_21: rcollimator, l=0.1;
+d4_22: rcollimator, l=0.1;
+d4_23: rcollimator, l=0.1;
+d4_24: rcollimator, l=0.1;
+d4_25: rcollimator, l=0.1;
+d4_26: rcollimator, l=0.1;
+d4_27: rcollimator, l=0.1;
+d4_28: rcollimator, l=0.1;
+d4_29: rcollimator, l=0.1;
+d4_30: rcollimator, l=0.1;
+d4_31: rcollimator, l=0.1;
+d4_32: rcollimator, l=0.1;
+d4_33: rcollimator, l=0.1;
+d4_34: rcollimator, l=0.1;
+d4_35: rcollimator, l=0.1;
+d4_36: rcollimator, l=0.1;
+d4_37: rcollimator, l=0.1;
+d4_38: rcollimator, l=0.1;
+d4_39: rcollimator, l=0.1;
+d4_40: rcollimator, l=0.1;
+d4_41: rcollimator, l=0.1;
+d4_42: rcollimator, l=0.1;
+d4_43: rcollimator, l=0.1;
+d4_44: rcollimator, l=0.1;
+d4_45: rcollimator, l=0.1;
+d4_46: rcollimator, l=0.1;
+d4_47: rcollimator, l=0.1;
+d4_48: rcollimator, l=0.1;
+d4_49: rcollimator, l=0.1;
+d4_50: rcollimator, l=0.1;
+d4_51: rcollimator, l=0.1;
+d4_52: rcollimator, l=0.0445;  ! Adjusted to cover the remaining length
+
+! MAIN DIPOLE - modelled as 6 sbend sections
+! with 5 fringe field sbends at each end
+! --------------------------------------------------------------
+
+dipfr1  : sbend, l=0.03, k1:=dipfr1_k1, angle:=dipfr1_angle;
+dipfr2  : sbend, l=0.20, k1:=dipfr2_k1, angle:=dipfr2_angle;
+dipfr3  : sbend, l=0.16, k1:=dipfr3_k1, angle:=dipfr3_angle;
+dipfr4  : sbend, l=0.04, k1:=dipfr4_k1, angle:=dipfr4_angle;
+dipfr5  : sbend, l=0.2,  k1:=dipfr5_k1, angle:=dipfr5_angle;
+dip1    : sbend, l=0.06, k1:=dip1_k1, angle:=dip1_angle;
+dip2    : sbend, l=1.0,  k1:=dip2_k1, angle:=dip2_angle;
+dip3    : sbend, l=1.0,  k1:=dip3_k1, angle:=dip3_angle;
+dip4    : sbend, l=1.0,  k1:=dip4_k1, angle:=dip4_angle;
+dip5    : sbend, l=0.8,  k1:=dip5_k1, angle:=dip5_angle;
+dip6    : sbend, l=0.06, k1:=dip6_k1, angle:=dip6_angle;
+dipfr6  : sbend, l=0.2,  k1:=dipfr6_k1, angle:=dipfr6_angle;
+dipfr7  : sbend, l=0.04, k1:=dipfr7_k1, angle:=dipfr7_angle;
+dipfr8  : sbend, l=0.16, k1:=dipfr8_k1, angle:=dipfr8_angle;
+dipfr9  : sbend, l=0.2,  k1:=dipfr9_k1, angle:=dipfr9_angle;
+dipfr10 : sbend, l=0.03, k1:=dipfr10_k1, angle:=dipfr10_angle;
+
+! 10cm splitting
+dipfr2_0 : sbend, l=0.1, k1:=dipfr2_k1, angle:=dipfr2_0_angle;
+dipfr2_1 : sbend, l=0.1, k1:=dipfr2_k1, angle:=dipfr2_1_angle;
+dipfr3_0  : sbend, l=0.1, k1:=dipfr3_k1, angle:=dipfr3_0_angle;
+dipfr3_1  : sbend, l=0.06, k1:=dipfr3_k1, angle:=dipfr3_1_angle;
+dipfr5_0  : sbend, l=0.1,  k1:=dipfr5_k1, angle:=dipfr5_0_angle;
+dipfr5_1  : sbend, l=0.1,  k1:=dipfr5_k1, angle:=dipfr5_1_angle;
+dipfr6_0  : sbend, l=0.1,  k1:=dipfr6_k1, angle:=dipfr6_0_angle;
+dipfr6_1  : sbend, l=0.1,  k1:=dipfr6_k1, angle:=dipfr6_1_angle;
+dipfr8_0  : sbend, l=0.06, k1:=dipfr8_k1, angle:=dipfr8_0_angle;
+dipfr8_1  : sbend, l=0.1, k1:=dipfr8_k1, angle:=dipfr8_1_angle;
+dipfr9_0 : sbend, l=0.1, k1:=dipfr9_k1, angle:=dipfr9_0_angle;
+dipfr9_1 : sbend, l=0.1, k1:=dipfr9_k1, angle:=dipfr9_1_angle;
+
+!dipfr2_0 : sbend, l=0.1, k1:=dipfr2_k1, angle:=dipfr2_angle;
+!dipfr2_1 : sbend, l=0.1, k1:=dipfr2_k1, angle:=dipfr2_angle;
+!dipfr3_0  : sbend, l=0.1, k1:=dipfr3_k1, angle:=dipfr3_angle;
+!dipfr3_1  : sbend, l=0.06, k1:=dipfr3_k1, angle:=dipfr3_angle;
+!dipfr5_0  : sbend, l=0.1,  k1:=dipfr5_k1, angle:=dipfr5_angle;
+!dipfr5_1  : sbend, l=0.1,  k1:=dipfr5_k1, angle:=dipfr5_angle;
+!dipfr6_0  : sbend, l=0.1,  k1:=dipfr6_k1, angle:=dipfr6_angle;
+!dipfr6_1  : sbend, l=0.1,  k1:=dipfr6_k1, angle:=dipfr6_angle;
+!dipfr8_0  : sbend, l=0.1, k1:=dipfr8_k1, angle:=dipfr8_angle;
+!dipfr8_1  : sbend, l=0.06, k1:=dipfr8_k1, angle:=dipfr8_angle;
+!dipfr9_0 : sbend, l=0.1, k1:=dipfr9_k1, angle:=dipfr9_angle;
+!dipfr9_1 : sbend, l=0.1, k1:=dipfr9_k1, angle:=dipfr9_angle;
+
+dip2_0: sbend, l=0.1, k1:=dip2_k1, angle:=dip2_0_angle;
+dip2_1: sbend, l=0.1, k1:=dip2_k1, angle:=dip2_1_angle;
+dip2_2: sbend, l=0.1, k1:=dip2_k1, angle:=dip2_2_angle;
+dip2_3: sbend, l=0.1, k1:=dip2_k1, angle:=dip2_3_angle;
+dip2_4: sbend, l=0.1, k1:=dip2_k1, angle:=dip2_4_angle;
+dip2_5: sbend, l=0.1, k1:=dip2_k1, angle:=dip2_5_angle;
+dip2_6: sbend, l=0.1, k1:=dip2_k1, angle:=dip2_6_angle;
+dip2_7: sbend, l=0.1, k1:=dip2_k1, angle:=dip2_7_angle;
+dip2_8: sbend, l=0.1, k1:=dip2_k1, angle:=dip2_8_angle;
+dip2_9: sbend, l=0.1, k1:=dip2_k1, angle:=dip2_9_angle;
+
+dip3_0: sbend, l=0.1, k1:=dip3_k1, angle:=dip3_0_angle;
+dip3_1: sbend, l=0.1, k1:=dip3_k1, angle:=dip3_1_angle;
+dip3_2: sbend, l=0.1, k1:=dip3_k1, angle:=dip3_2_angle;
+dip3_3: sbend, l=0.1, k1:=dip3_k1, angle:=dip3_3_angle;
+dip3_4: sbend, l=0.1, k1:=dip3_k1, angle:=dip3_4_angle;
+dip3_5: sbend, l=0.1, k1:=dip3_k1, angle:=dip3_5_angle;
+dip3_6: sbend, l=0.1, k1:=dip3_k1, angle:=dip3_6_angle;
+dip3_7: sbend, l=0.1, k1:=dip3_k1, angle:=dip3_7_angle;
+dip3_8: sbend, l=0.1, k1:=dip3_k1, angle:=dip3_8_angle;
+dip3_9: sbend, l=0.1, k1:=dip3_k1, angle:=dip3_9_angle;
+
+dip4_0: sbend, l=0.1, k1:=dip4_k1, angle:=dip4_0_angle;
+dip4_1: sbend, l=0.1, k1:=dip4_k1, angle:=dip4_1_angle;
+dip4_2: sbend, l=0.1, k1:=dip4_k1, angle:=dip4_2_angle;
+dip4_3: sbend, l=0.1, k1:=dip4_k1, angle:=dip4_3_angle;
+dip4_4: sbend, l=0.1, k1:=dip4_k1, angle:=dip4_4_angle;
+dip4_5: sbend, l=0.1, k1:=dip4_k1, angle:=dip4_5_angle;
+dip4_6: sbend, l=0.1, k1:=dip4_k1, angle:=dip4_6_angle;
+dip4_7: sbend, l=0.1, k1:=dip4_k1, angle:=dip4_7_angle;
+dip4_8: sbend, l=0.1, k1:=dip4_k1, angle:=dip4_8_angle;
+dip4_9: sbend, l=0.1, k1:=dip4_k1, angle:=dip4_9_angle;
+
+dip5_0: sbend, l=0.1, k1:=dip5_k1, angle:=dip5_0_angle;
+dip5_1: sbend, l=0.1, k1:=dip5_k1, angle:=dip5_1_angle;
+dip5_2: sbend, l=0.1, k1:=dip5_k1, angle:=dip5_2_angle;
+dip5_3: sbend, l=0.1, k1:=dip5_k1, angle:=dip5_3_angle;
+dip5_4: sbend, l=0.1, k1:=dip5_k1, angle:=dip5_4_angle;
+dip5_5: sbend, l=0.1, k1:=dip5_k1, angle:=dip5_5_angle;
+dip5_6: sbend, l=0.1, k1:=dip5_k1, angle:=dip5_6_angle;
+dip5_7: sbend, l=0.1, k1:=dip5_k1, angle:=dip5_7_angle;
+
+! INJECTION DIPOLE
+! --------------------------------------------------------------
+!ib2 : rbend, l=0.5, angle=0.04504, e1=0.04504, e2=0.0; ! From BKs HEDS model
+
+idip1 : rbend, l=0.5, angle:=idip1_angle;
+idip2 : rbend, l=0.5, angle:=idip2_angle;
+idip3 : rbend, l=0.5, angle:=idip3_angle;
+idip4 : rbend, l=0.5, angle:=idip4_angle;
+
+!idip1 : hkicker, l=0.001, kick:=idip1_angle;
+!idip2 : hkicker, l=0.001, kick:=idip2_angle;
+!idip3 : hkicker, l=0.001, kick:=idip3_angle;
+!idip4 : hkicker, l=0.001, kick:=idip4_angle;
+
+! MAIN QUADRUPOLES - modelled as multiple quadrupole sections
+! --------------------------------------------------------------
+
+qdfr1   : quadrupole, l=0.05275, k1:=qdfr1_k1; 
+qdfr2   : quadrupole, l=0.05275, k1:=qdfr2_k1;
+qdfr3   : quadrupole, l=0.05275, k1:=qdfr3_k1;
+qdfr4   : quadrupole, l=0.05275, k1:=qdfr4_k1;
+qd      : quadrupole, l=0.51920, k1:=qd_k1;
+qdfr5   : quadrupole, l=0.05275, k1:=qdfr5_k1;
+qdfr6   : quadrupole, l=0.05275, k1:=qdfr6_k1;
+qdfr7   : quadrupole, l=0.05275, k1:=qdfr7_k1;
+qdfr8   : quadrupole, l=0.05275, k1:=qdfr8_k1;
+
+qffr1   : quadrupole, l=0.05275, k1:=qffr1_k1; 
+qffr2   : quadrupole, l=0.05275, k1:=qffr2_k1; 
+qffr3   : quadrupole, l=0.05275, k1:=qffr3_k1;
+qffr4   : quadrupole, l=0.05275, k1:=qffr4_k1; 
+qf      : quadrupole, l=0.50420, k1:=qf_k1;
+qffr5   : quadrupole, l=0.05275, k1:=qffr5_k1;
+qffr6   : quadrupole, l=0.05275, k1:=qffr6_k1; 
+qffr7   : quadrupole, l=0.05275, k1:=qffr7_k1; 
+qffr8   : quadrupole, l=0.05275, k1:=qffr8_k1;      
+
+qdsfr1  : quadrupole, l=0.03875, k1:=qdsfr1_k1;
+qdsfr2  : quadrupole, l=0.03875, k1:=qdsfr2_k1;
+qdsfr3  : quadrupole, l=0.03875, k1:=qdsfr3_k1;
+qdsfr4  : quadrupole, l=0.03875, k1:=qdsfr4_k1;
+qds     : quadrupole, l=0.24740, k1:=qds_k1;
+qdsfr5  : quadrupole, l=0.03875, k1:=qdsfr5_k1;
+qdsfr6  : quadrupole, l=0.03875, k1:=qdsfr6_k1;
+qdsfr7  : quadrupole, l=0.03875, k1:=qdsfr7_k1;
+qdsfr8  : quadrupole, l=0.03875, k1:=qdsfr8_k1;
+
+! 10cm splitting
+
+qd_0: quadrupole, l=0.1, k1:=qd_k1;
+qd_1: quadrupole, l=0.1, k1:=qd_k1;
+qd_2: quadrupole, l=0.1, k1:=qd_k1;
+qd_3: quadrupole, l=0.1, k1:=qd_k1;
+qd_4: quadrupole, l=0.1, k1:=qd_k1;
+qd_5: quadrupole, l=0.01920, k1:=qd_k1;
+
+qf_0: quadrupole, l=0.1, k1:=qf_k1;
+qf_1: quadrupole, l=0.1, k1:=qf_k1;
+qf_2: quadrupole, l=0.1, k1:=qf_k1;
+qf_3: quadrupole, l=0.1, k1:=qf_k1;
+qf_4: quadrupole, l=0.1, k1:=qf_k1;
+qf_5: quadrupole, l=0.0042, k1:=qf_k1;
+
+qds_0: quadrupole, l=0.1, k1:=qds_k1;
+qds_1: quadrupole, l=0.1, k1:=qds_k1;
+qds_2: quadrupole, l=0.0474, k1:=qds_k1;
+
+
+! TRIM QUADRUPOLES
+! --------------------------------------------------------------
+
+qtd     : quadrupole, l=0.307, k1:=kqtd;
+
+qtf     : quadrupole, l=0.307, k1:=kqtf;
+
+r0qtf : qtf, k1 := kqtf_0;
+r1qtf : qtf, k1 := kqtf_1;
+r2qtf : qtf, k1 := kqtf_2;
+r3qtf : qtf, k1 := kqtf_3;
+r4qtf : qtf, k1 := kqtf_4;
+r5qtf : qtf, k1 := kqtf_5;
+r6qtf : qtf, k1 := kqtf_6;
+r7qtf : qtf, k1 := kqtf_7;
+r8qtf : qtf, k1 := kqtf_8;
+r9qtf : qtf, k1 := kqtf_9;
+
+r0qtd : qtd, k1 := kqtd_0;
+r1qtd : qtd, k1 := kqtd_1;
+r2qtd : qtd, k1 := kqtd_2;
+r3qtd : qtd, k1 := kqtd_3;
+r4qtd : qtd, k1 := kqtd_4;
+r5qtd : qtd, k1 := kqtd_5;
+r6qtd : qtd, k1 := kqtd_6;
+r7qtd : qtd, k1 := kqtd_7;
+r8qtd : qtd, k1 := kqtd_8;
+r9qtd : qtd, k1 := kqtd_9;
+
+!10cm split
+qtd_0: quadrupole, l=0.1, k1:=kqtd;
+qtd_1: quadrupole, l=0.1, k1:=kqtd;
+qtd_2: quadrupole, l=0.1, k1:=kqtd;
+qtd_3: quadrupole, l=0.007, k1:=kqtd;
+
+qtf_0: quadrupole, l=0.1, k1:=kqtf;
+qtf_1: quadrupole, l=0.1, k1:=kqtf;
+qtf_2: quadrupole, l=0.1, k1:=kqtf;
+qtf_3: quadrupole, l=0.007, k1:=kqtf;
+
+r0qtf_0 : quadrupole, l=0.1, k1:=kqtf_0;
+r0qtf_1 : quadrupole, l=0.1, k1:=kqtf_0;
+r0qtf_2 : quadrupole, l=0.1, k1:=kqtf_0;
+r0qtf_3 : quadrupole, l=0.007, k1:=kqtf_0;
+
+r0qtd_0 : quadrupole, l=0.1, k1:=kqtd_0;
+r0qtd_1 : quadrupole, l=0.1,  k1:=kqtd_0;
+r0qtd_2 : quadrupole, l=0.1, k1:=kqtd_0;
+r0qtd_3 : quadrupole, l=0.007, k1:=kqtd_0;
+
+r1qtf_0 : quadrupole, l=0.1, k1:=kqtf_1;
+r1qtf_1 : quadrupole, l=0.1, k1:=kqtf_1;
+r1qtf_2 : quadrupole, l=0.1, k1:=kqtf_1;
+r1qtf_3 : quadrupole, l=0.007, k1:=kqtf_1;
+
+r1qtd_0 : quadrupole, l=0.1, k1:=kqtd_1;
+r1qtd_1 : quadrupole, l=0.1,  k1:=kqtd_1;
+r1qtd_2 : quadrupole, l=0.1, k1:=kqtd_1;
+r1qtd_3 : quadrupole, l=0.007, k1:=kqtd_1;
+
+r2qtf_0 : quadrupole, l=0.1, k1:=kqtf_2;
+r2qtf_1 : quadrupole, l=0.1, k1:=kqtf_2;
+r2qtf_2 : quadrupole, l=0.1, k1:=kqtf_2;
+r2qtf_3 : quadrupole, l=0.007, k1:=kqtf_2;
+
+r2qtd_0 : quadrupole, l=0.1, k1:=kqtd_2;
+r2qtd_1 : quadrupole, l=0.1,  k1:=kqtd_2;
+r2qtd_2 : quadrupole, l=0.1, k1:=kqtd_2;
+r2qtd_3 : quadrupole, l=0.007, k1:=kqtd_2;
+
+r3qtf_0 : quadrupole, l=0.1, k1:=kqtf_3;
+r3qtf_1 : quadrupole, l=0.1, k1:=kqtf_3;
+r3qtf_2 : quadrupole, l=0.1, k1:=kqtf_3;
+r3qtf_3 : quadrupole, l=0.007, k1:=kqtf_3;
+
+r3qtd_0 : quadrupole, l=0.1, k1:=kqtd_3;
+r3qtd_1 : quadrupole, l=0.1,  k1:=kqtd_3;
+r3qtd_2 : quadrupole, l=0.1, k1:=kqtd_3;
+r3qtd_3 : quadrupole, l=0.007, k1:=kqtd_3;
+
+r4qtf_0 : quadrupole, l=0.1, k1:=kqtf_4;
+r4qtf_1 : quadrupole, l=0.1, k1:=kqtf_4;
+r4qtf_2 : quadrupole, l=0.1, k1:=kqtf_4;
+r4qtf_3 : quadrupole, l=0.007, k1:=kqtf_4;
+
+r4qtd_0 : quadrupole, l=0.1, k1:=kqtd_4;
+r4qtd_1 : quadrupole, l=0.1,  k1:=kqtd_4;
+r4qtd_2 : quadrupole, l=0.1, k1:=kqtd_4;
+r4qtd_3 : quadrupole, l=0.007, k1:=kqtd_4;
+
+r5qtf_0 : quadrupole, l=0.1, k1:=kqtf_5;
+r5qtf_1 : quadrupole, l=0.1, k1:=kqtf_5;
+r5qtf_2 : quadrupole, l=0.1, k1:=kqtf_5;
+r5qtf_3 : quadrupole, l=0.007, k1:=kqtf_5;
+
+r5qtd_0 : quadrupole, l=0.1, k1:=kqtd_5;
+r5qtd_1 : quadrupole, l=0.1,  k1:=kqtd_5;
+r5qtd_2 : quadrupole, l=0.1, k1:=kqtd_5;
+r5qtd_3 : quadrupole, l=0.007, k1:=kqtd_5;
+
+r6qtf_0 : quadrupole, l=0.1, k1:=kqtf_6;
+r6qtf_1 : quadrupole, l=0.1, k1:=kqtf_6;
+r6qtf_2 : quadrupole, l=0.1, k1:=kqtf_6;
+r6qtf_3 : quadrupole, l=0.007, k1:=kqtf_6;
+
+r6qtd_0 : quadrupole, l=0.1, k1:=kqtd_6;
+r6qtd_1 : quadrupole, l=0.1,  k1:=kqtd_6;
+r6qtd_2 : quadrupole, l=0.1, k1:=kqtd_6;
+r6qtd_3 : quadrupole, l=0.007, k1:=kqtd_6;
+
+r7qtf_0 : quadrupole, l=0.1, k1:=kqtf_7;
+r7qtf_1 : quadrupole, l=0.1, k1:=kqtf_7;
+r7qtf_2 : quadrupole, l=0.1, k1:=kqtf_7;
+r7qtf_3 : quadrupole, l=0.007, k1:=kqtf_7;
+
+r7qtd_0 : quadrupole, l=0.1, k1:=kqtd_7;
+r7qtd_1 : quadrupole, l=0.1,  k1:=kqtd_7;
+r7qtd_2 : quadrupole, l=0.1, k1:=kqtd_7;
+r7qtd_3 : quadrupole, l=0.007, k1:=kqtd_7;
+
+r8qtf_0 : quadrupole, l=0.1, k1:=kqtf_8;
+r8qtf_1 : quadrupole, l=0.1, k1:=kqtf_8;
+r8qtf_2 : quadrupole, l=0.1, k1:=kqtf_8;
+r8qtf_3 : quadrupole, l=0.007, k1:=kqtf_8;
+
+r8qtd_0 : quadrupole, l=0.1, k1:=kqtd_8;
+r8qtd_1 : quadrupole, l=0.1,  k1:=kqtd_8;
+r8qtd_2 : quadrupole, l=0.1, k1:=kqtd_8;
+r8qtd_3 : quadrupole, l=0.007, k1:=kqtd_8;
+
+r9qtf_0 : quadrupole, l=0.1, k1:=kqtf_9;
+r9qtf_1 : quadrupole, l=0.1, k1:=kqtf_9;
+r9qtf_2 : quadrupole, l=0.1, k1:=kqtf_9;
+r9qtf_3 : quadrupole, l=0.007, k1:=kqtf_9;
+
+r9qtd_0 : quadrupole, l=0.1, k1:=kqtd_9;
+r9qtd_1 : quadrupole, l=0.1,  k1:=kqtd_9;
+r9qtd_2 : quadrupole, l=0.1, k1:=kqtd_9;
+r9qtd_3 : quadrupole, l=0.007, k1:=kqtd_9;
+
+! SEXTUPOLE
+! --------------------------------------------------------------
+sx1 : sextupole, l=.236, k2 := ksext;
+
+! KICKERS
+! --------------------------------------------------------------
+
+R0HD1 : HKICKER, L=0.00, kick := r0hd1_kick;
+R0VD1 : VKICKER, L=0.00, kick := r0vd1_kick;
+R2HD1 : HKICKER, L=0.00, kick := r2hd1_kick;
+R2VD1 : VKICKER, L=0.00, kick := r2vd1_kick;
+R3VD1 : VKICKER, L=0.00, kick := r3vd1_kick;
+R3HD1 : HKICKER, L=0.00, kick := r3hd1_kick;
+R4HD1 : HKICKER, L=0.00, kick := r4hd1_kick;
+R4VD1 : VKICKER, L=0.00, kick := r4vd1_kick;
+R5HD1 : HKICKER, L=0.00, kick := r5hd1_kick;
+R5VD1 : VKICKER, L=0.00, kick := r5vd1_kick;
+R7VD1 : VKICKER, L=0.00, kick := r7vd1_kick;
+R7HD1 : HKICKER, L=0.00, kick := r7hd1_kick;
+R9HD1 : HKICKER, L=0.00, kick := r9hd1_kick;
+R9VD1 : VKICKER, L=0.00, kick := r9vd1_kick;
+sp0_R0HD1 : R0HD1;
+sp0_R0VD1 : R0VD1;
+sp2_R2HD1 : R2HD1;
+sp2_R2VD1 : R2VD1;
+sp3_R3VD1 : R3VD1;
+sp3_R3HD1 : R3HD1;
+sp4_R4VD1 : R4VD1;
+sp4_R4HD1 : R4HD1;
+sp5_R5VD1 : R5VD1;
+sp5_R5HD1 : R5HD1;
+sp7_R7VD1 : R7VD1;
+sp7_R7HD1 : R7HD1;
+sp9_R9VD1 : R9VD1;
+sp9_R9HD1 : R9HD1;
+
+! MONITORS
+! --------------------------------------------------------------
+
+
+R0HM1 : HMONITOR, L=0.00; 
+R0VM1 : VMONITOR, L=0.00; 
+R0HM2 : HMONITOR, L=0.00;   ! not in sequence
+R1HM1 : HMONITOR, L=0.00; 
+R1VM1 : VMONITOR, L=0.00; 
+R1HM2 : HMONITOR, L=0.00; 
+R1VM2 : VMONITOR, L=0.00; 
+R2HM1 : HMONITOR, L=0.00;
+R2VM1 : VMONITOR, L=0.00;
+R2HM2 : HMONITOR, L=0.00;
+R2VM2 : VMONITOR, L=0.00;
+R3VM1 : VMONITOR, L=0.00;
+R3VM2 : VMONITOR, L=0.00;
+R3HM1 : HMONITOR, L=0.00;
+R3VM3 : VMONITOR, L=0.00;
+R4HM1 : HMONITOR, L=0.00;
+R4VM1 : VMONITOR, L=0.00;
+R4HM2 : HMONITOR, L=0.00;
+R4VM2 : VMONITOR, L=0.00;
+R5VM1 : VMONITOR, L=0.00;
+R5HM1 : HMONITOR, L=0.00;
+R5HPM1: HMONITOR, L=0.00; ! Profile Monitor
+R5WIRE: MONITOR, L=0.00;  ! Wire?
+R5VM2 : VMONITOR, L=0.00;
+R5HPM2: HMONITOR, L=0.00; ! Profile Monitor
+R6HPM1: HMONITOR, L=0.00; ! Profile Monitor
+R6HM1 : HMONITOR, L=0.00;
+R6VM1 : VMONITOR, L=0.00;
+R6VPM1: VMONITOR, L=0.00; ! Profile Monitor
+R6HM2 : HMONITOR, L=0.00;
+R6HM3 : HMONITOR, L=0.00;
+R6VM2 : VMONITOR, L=0.00;
+R6VPM2: VMONITOR, L=0.00; ! Profile Monitor
+R7VM1 : VMONITOR, L=0.00;
+R7VM2 : VMONITOR, L=0.00;
+R7HM1 : HMONITOR, L=0.00;
+R7HM2 : HMONITOR, L=0.00;
+R7VM3 : VMONITOR, L=0.00;
+R8HM1 : HMONITOR, L=0.00;
+R8VM1 : VMONITOR, L=0.00;
+R8HM2 : HMONITOR, L=0.00;
+R8VM2 : VMONITOR, L=0.00;
+R9VM2 : VMONITOR, L=0.00;
+R9HM1 : HMONITOR, L=0.00;
+R9VM3 : VMONITOR, L=0.00;
+
+sp0_R0HM1 : R0HM1;
+sp0_R0VM1 : R0VM1;
+sp0_R0HM2 : R0HM2;        ! not in sequence
+sp1_R1HM1 : R1HM1; 
+sp1_R1VM1 : R1VM1; 
+sp1_R1HM2 : R1HM2; 
+sp1_R1VM2 : R1VM2; 
+sp2_R2HM1 : R2HM1;
+sp2_R2VM1 : R2VM1;
+sp2_R2HM2 : R2HM2;
+sp2_R2VM2 : R2VM2;
+sp3_R3VM1 : R3VM1;
+sp3_R3VM2 : R3VM2;
+sp3_R3HM1 : R3HM1;
+sp3_R3VM3 : R3VM3;
+sp4_R4HM1 : R4HM1;
+sp4_R4VM1 : R4VM1;
+sp4_R4HM2 : R4HM2;
+sp4_R4VM2 : R4VM2;
+sp5_R5VM1 : R5VM1;
+sp5_R5HM1 : R5HM1;
+sp5_R5HPM1 : R5HPM1;
+sp5_R5WIRE : R5WIRE;
+sp5_R5VM2 : R5VM2;
+sp5_R5HPM2 : R5HPM2;
+sp6_R6HPM1 : R6HPM1;
+sp6_R6HM1 : R6HM1;
+sp6_R6VM1 : R6VM1;
+sp6_R6VPM1 : R6VPM1;
+sp6_R6HM2 : R6HM2;
+sp6_R6HM3 : R6HM3;
+sp6_R6VM2 : R6VM2;
+sp6_R6VPM2 : R6VPM2;
+sp4_R7VM1 : R7VM1;
+sp7_R7VM2 : R7VM2;
+sp7_R7HM1 : R7HM1;
+sp7_R7HM2 : R7HM2;
+sp7_R7VM3 : R7VM3;
+sp8_R8HM1 : R8HM1;
+sp8_R8HM1 : R8HM1;
+sp8_R8HM1 : R8HM1;
+sp8_R8HM1 : R8HM1;
+sp9_R9VM2 : R9VM2;
+sp9_R9HM1 : R9HM1;
+sp9_R9VM3 : R9VM3;
+
+! MARKERS
+! --------------------------------------------------------------
+
+! Extraction kickers
+K1    : MARKER;
+K2    : MARKER;
+K3    : MARKER;
+
+FOIL  : MARKER;
+VCP1  : MARKER;
+HCP1  : MARKER;
+VCS0  : MARKER;
+VCS1  : MARKER;
+HCS1  : MARKER;
+VCS2  : MARKER;
+EXTWIRE : MARKER;
+SEPNI : MARKER;
+HCS3  : MARKER;
+MICE  : MARKER;

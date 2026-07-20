@@ -1,0 +1,214 @@
+! DRIFTS
+! --------------------------------------------------------------
+
+s1      : drift, l=1.31;
+s2      : drift, l=1.2394;
+s3      : drift, l=0.09765;   
+s4      : drift, l=0.09765;
+s5      : drift, l=0.0967;
+s6      : drift, l=1.0;
+s7      : drift, l=1.0;
+s8      : drift, l=1.0;
+s9      : drift, l=1.0;
+s10     : drift, l=1.2445;
+s11     : drift, l=.031582;
+
+d0 : drift, l=2.5494;
+d1 : drift, l=0.09765;
+d2 : drift, l=0.0967;
+d3 : drift, l=5.2445;
+d4 : drift, l=0.031582;
+d_qt : drift, l=0.1535;
+
+! MAIN DIPOLE - modelled as 6 sbend sections
+! with 5 fringe field sbends at each end
+! --------------------------------------------------------------
+
+dipfr1  : sbend, l=0.03, k1:=dipfr1_k1, angle:=dipfr1_angle;
+dipfr2  : sbend, l=0.20, k1:=dipfr2_k1, angle:=dipfr2_angle;
+dipfr3  : sbend, l=0.16, k1:=dipfr3_k1, angle:=dipfr3_angle;
+dipfr4  : sbend, l=0.04, k1:=dipfr4_k1, angle:=dipfr4_angle;
+dipfr5  : sbend, l=0.2,  k1:=dipfr5_k1, angle:=dipfr5_angle;
+dip1    : sbend, l=0.06, k1:=dip1_k1, angle:=dip1_angle;
+dip2    : sbend, l=1.0,  k1:=dip2_k1, angle:=dip2_angle;
+dip3    : sbend, l=1.0,  k1:=dip3_k1, angle:=dip3_angle;
+dip4    : sbend, l=1.0,  k1:=dip4_k1, angle:=dip4_angle;
+dip5    : sbend, l=0.8,  k1:=dip5_k1, angle:=dip5_angle;
+dip6    : sbend, l=0.06, k1:=dip6_k1, angle:=dip6_angle;
+dipfr6  : sbend, l=0.2,  k1:=dipfr6_k1, angle:=dipfr6_angle;
+dipfr7  : sbend, l=0.04, k1:=dipfr7_k1, angle:=dipfr7_angle;
+dipfr8  : sbend, l=0.16, k1:=dipfr8_k1, angle:=dipfr8_angle;
+dipfr9  : sbend, l=0.2,  k1:=dipfr9_k1, angle:=dipfr9_angle;
+dipfr10 : sbend, l=0.03, k1:=dipfr10_k1, angle:=dipfr10_angle;
+
+! INJECTION DIPOLE
+! --------------------------------------------------------------
+!ib2 : rbend, l=0.5, angle=0.04504, e1=0.04504, e2=0.0; ! From BKs HEDS model
+
+idip1 : rbend, l=0.5, angle:=idip1_angle;
+idip2 : rbend, l=0.5, angle:=idip2_angle;
+idip3 : rbend, l=0.5, angle:=idip3_angle;
+idip4 : rbend, l=0.5, angle:=idip4_angle;
+
+!idip1 : hkicker, l=0.001, kick:=idip1_angle;
+!idip2 : hkicker, l=0.001, kick:=idip2_angle;
+!idip3 : hkicker, l=0.001, kick:=idip3_angle;
+!idip4 : hkicker, l=0.001, kick:=idip4_angle;
+
+! MAIN QUADRUPOLES - modelled as multiple quadrupole sections
+! --------------------------------------------------------------
+
+qdfr1   : quadrupole, l=0.05275, k1:=qdfr1_k1; 
+qdfr2   : quadrupole, l=0.05275, k1:=qdfr2_k1;
+qdfr3   : quadrupole, l=0.05275, k1:=qdfr3_k1;
+qdfr4   : quadrupole, l=0.05275, k1:=qdfr4_k1;
+qd      : quadrupole, l=0.51920, k1:=qd_k1;
+qdfr5   : quadrupole, l=0.05275, k1:=qdfr5_k1;
+qdfr6   : quadrupole, l=0.05275, k1:=qdfr6_k1;
+qdfr7   : quadrupole, l=0.05275, k1:=qdfr7_k1;
+qdfr8   : quadrupole, l=0.05275, k1:=qdfr8_k1;
+
+qffr1   : quadrupole, l=0.05275, k1:=qffr1_k1; 
+qffr2   : quadrupole, l=0.05275, k1:=qffr2_k1; 
+qffr3   : quadrupole, l=0.05275, k1:=qffr3_k1;
+qffr4   : quadrupole, l=0.05275, k1:=qffr4_k1; 
+qf      : quadrupole, l=0.50420, k1:=qf_k1;
+qffr5   : quadrupole, l=0.05275, k1:=qffr5_k1;
+qffr6   : quadrupole, l=0.05275, k1:=qffr6_k1; 
+qffr7   : quadrupole, l=0.05275, k1:=qffr7_k1; 
+qffr8   : quadrupole, l=0.05275, k1:=qffr8_k1;      
+
+qdsfr1  : quadrupole, l=0.03875, k1:=qdsfr1_k1;
+qdsfr2  : quadrupole, l=0.03875, k1:=qdsfr2_k1;
+qdsfr3  : quadrupole, l=0.03875, k1:=qdsfr3_k1;
+qdsfr4  : quadrupole, l=0.03875, k1:=qdsfr4_k1;
+qds     : quadrupole, l=0.24740, k1:=qds_k1;
+qdsfr5  : quadrupole, l=0.03875, k1:=qdsfr5_k1;
+qdsfr6  : quadrupole, l=0.03875, k1:=qdsfr6_k1;
+qdsfr7  : quadrupole, l=0.03875, k1:=qdsfr7_k1;
+qdsfr8  : quadrupole, l=0.03875, k1:=qdsfr8_k1;
+
+! TRIM QUADRUPOLES
+! --------------------------------------------------------------
+
+qtd     : quadrupole, l=0.307, k1:=kqtd;
+
+qtf     : quadrupole, l=0.307, k1:=kqtf;
+
+r0qtf : qtf, k1 := kqtf_0;
+r1qtf : qtf, k1 := kqtf_1;
+r2qtf : qtf, k1 := kqtf_2;
+r3qtf : qtf, k1 := kqtf_3;
+r4qtf : qtf, k1 := kqtf_4;
+r5qtf : qtf, k1 := kqtf_5;
+r6qtf : qtf, k1 := kqtf_6;
+r7qtf : qtf, k1 := kqtf_7;
+r8qtf : qtf, k1 := kqtf_8;
+r9qtf : qtf, k1 := kqtf_9;
+
+r0qtd : qtd, k1 := kqtd_0;
+r1qtd : qtd, k1 := kqtd_1;
+r2qtd : qtd, k1 := kqtd_2;
+r3qtd : qtd, k1 := kqtd_3;
+r4qtd : qtd, k1 := kqtd_4;
+r5qtd : qtd, k1 := kqtd_5;
+r6qtd : qtd, k1 := kqtd_6;
+r7qtd : qtd, k1 := kqtd_7;
+r8qtd : qtd, k1 := kqtd_8;
+r9qtd : qtd, k1 := kqtd_9;
+
+! SEXTUPOLE
+! --------------------------------------------------------------
+sx1 : sextupole, l=.236, k2 := ksext;
+
+! MONITORS & KICKERS
+! --------------------------------------------------------------
+
+R0HD1 : HKICKER , L=0.001 , kick := r0hd1_kick; 
+R0HM1 : HMONITOR, L=0.001; 
+R0VM1 : VMONITOR, L=0.001; 
+R0VD1 : VKICKER , L=0.001 , kick := r0vd1_kick;
+R0HM2 : HMONITOR, L=0.001; 
+
+R1HM1 : HMONITOR, L=0.001; 
+R1VM1 : VMONITOR, L=0.001; 
+R1HM2 : HMONITOR, L=0.001; 
+R1VM2 : VMONITOR, L=0.001; 
+
+R2HM1 : HMONITOR, L=0.001;
+R2VM1 : VMONITOR, L=0.001;
+R2VD1 : VKICKER , L=0.001 , kick := r2vd1_kick;
+R2HM2 : HMONITOR, L=0.001;
+R2HD1 : HKICKER,  L=0.001 , kick := r2hd1_kick;
+R2VM2 : VMONITOR, L=0.001;
+
+R3VM1 : VMONITOR, L=0.001;
+R3VD1 : VKICKER , L=0.001 , kick := r3vd1_kick;
+R3VM2 : VMONITOR, L=0.001;
+R3HD1 : HKICKER , L=0.001 , kick := r3hd1_kick;
+R3HM1 : HMONITOR, L=0.001;
+R3VM3 : VMONITOR, L=0.001;
+
+R4HM1 : HMONITOR, L=0.001;
+R4VM1 : VMONITOR, L=0.001;
+R4HM2 : HMONITOR, L=0.001;
+R4HD1 : HKICKER , L=0.001 , kick := r4hd1_kick;
+R4VD1 : VKICKER , L=0.001 , kick := r4vd1_kick;
+R4VM2 : VMONITOR, L=0.001;
+
+R5VM1 : VMONITOR, L=0.001;
+R5VD1 : VKICKER , L=0.001 , kick := r5vd1_kick;
+R5HM1 : HMONITOR, L=0.001;
+R5HD1 : HKICKER , L=0.001 , kick := r5hd1_kick;
+R5HPM1: HMONITOR, L=0.001;
+R5WIRE: MONITOR, L=0.001;
+R5VM2 : VMONITOR, L=0.001;
+R5HPM2: HMONITOR, L=0.001;
+
+R6HPM1: HMONITOR, L=0.001;
+R6HM1 : HMONITOR, L=0.001;
+R6VM1 : VMONITOR, L=0.001;
+R6VPM1: VMONITOR, L=0.001;
+R6HM2 : HMONITOR, L=0.001;
+R6HM3 : HMONITOR, L=0.001;
+R6VM2 : VMONITOR, L=0.001;
+R6VPM2: VMONITOR, L=0.001;
+
+R7VM1 : VMONITOR, L=0.001;
+R7VM2 : VMONITOR, L=0.001;
+R7VD1 : VKICKER , L=0.001 , kick := r7vd1_kick;
+R7HM1 : HMONITOR, L=0.001;
+R7HM2 : HMONITOR, L=0.001;
+R7HD1 : HKICKER , L=0.001 , kick := r7hd1_kick;
+R7VM3 : VMONITOR, L=0.001;
+
+R8HM1 : HMONITOR, L=0.001;
+R8VM1 : VMONITOR, L=0.001;
+R8HM2 : HMONITOR, L=0.001;
+R8VM2 : VMONITOR, L=0.001;
+
+R9VM2 : VMONITOR, L=0.001;
+R9HM1 : HMONITOR, L=0.001;
+R9HD1 : HKICKER , L=0.000 , kick := r9hd1_kick;
+R9VD1 : VKICKER , L=0.001 , kick := r9vd1_kick;
+R9VM3 : VMONITOR, L=0.001;
+
+! MARKERS
+! --------------------------------------------------------------
+
+! Extraction kickers
+K1    : MARKER;
+K2    : MARKER;
+K3    : MARKER;
+
+FOIL  : MARKER;
+VCP1  : MARKER;
+HCP1  : MARKER;
+VCS0  : MARKER;
+VCS1  : MARKER;
+HCS1  : MARKER;
+VCS2  : MARKER;
+EXTWIRE : MARKER;
+SEPNI : MARKER;
+HCS3  : MARKER;
+MICE  : MARKER;

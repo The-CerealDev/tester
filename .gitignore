@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+
+machine_states/
+machine_states_test/
+madx_runs/
+snapshot_tests/
+*_tests/
+student_runs/

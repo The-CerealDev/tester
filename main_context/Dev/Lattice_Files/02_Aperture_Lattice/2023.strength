@@ -1,0 +1,15 @@
+//ISIS Strength File
+
+! Global main quadrupole scaling for bare tune matching
+! to measured bare tunes (4.316,3.765)
+!---------------------------------------------------------------
+
+main_dipole_scale := 1.0;
+fringe_dipole_scale := 1.0;
+fringe_dipole_neg_scale := 1.0;
+qd_scale := 0.984962103600024;
+qdfr_scale := 0.994661334722062;
+qf_scale := 0.9887119657096543;
+qffr_scale := 0.9959758637608666;
+qds_scale := 0.9931335289706212;
+qdsfr_scale := 0.9958189246720367;
