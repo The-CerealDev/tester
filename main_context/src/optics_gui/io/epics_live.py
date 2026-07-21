@@ -113,10 +113,13 @@ def get_corrector_settings(
     archiver connection method is not yet confirmed -- swap in the real
     client without changing this function or its tests.
 
-    Returns (settings, missing): settings is a SnapshotCorrectorSettings;
-    missing is a list of (superperiod, family) pairs that had no available
-    sample at or before cycle_time_ms, so the caller can decide how to warn
-    about an incomplete snapshot rather than it failing silently.
+    Returns (settings, missing): settings is a SnapshotCorrectorSettings, or
+    None if every corrector was missing (nothing to build a settings object
+    from -- the caller decides how to surface that, rather than getting an
+    unrelated-looking error from the table adapter underneath). missing is
+    a list of (superperiod, family) pairs that had no available sample at
+    or before cycle_time_ms, so an incomplete-but-nonempty snapshot is
+    still visible rather than failing silently.
     """
 
     rows = []
@@ -146,6 +149,9 @@ def get_corrector_settings(
                     "pv_name": pv_name,
                 }
             )
+
+    if not rows:
+        return None, missing
 
     settings = corrector_settings_from_table(
         rows,
