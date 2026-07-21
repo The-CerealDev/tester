@@ -13,6 +13,7 @@ from .configs import (
     write_snapshot_config,
     write_snapshot_series_config,
 )
+from .epics_archiver_client import archiver_fetch_value, archiver_list_available_times
 from .epics_live import (
     bpm_geometry_table,
     corrector_device_name,
@@ -30,6 +31,8 @@ from .measurements import (
 
 __all__ = [
     "ArchivedRun",
+    "archiver_fetch_value",
+    "archiver_list_available_times",
     "bpm_geometry_table",
     "config_from_record",
     "config_to_record",
