@@ -3,6 +3,7 @@ __pycache__/
 .ipynb_checkpoints/
 .venv/
 venv/
+pv_search_cache.json
 
 machine_states/
 machine_states_test/
