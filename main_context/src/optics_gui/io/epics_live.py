@@ -16,6 +16,8 @@ without a live network connection, and lets the real client be plugged in
 later without changing this logic.
 """
 
+import pandas as pd
+
 
 def _format_ms(value):
     """
@@ -152,3 +154,64 @@ def get_corrector_settings(
         source="epics_archiver",
     )
     return settings, missing
+
+
+# ----------------------------------------------------------------------
+# BPM / measured orbit -- geometry is confirmed against the lattice, but
+# the real position-readback PVs are NOT confirmed yet. The CHANGE:ORBIT_*
+# PVs found in the archiver dump sit on the same test IOC as the correctors
+# and look like distortion setpoints, not measurements -- don't wire
+# pv_name_for_bpm to those until staff confirm the real readback PVs.
+# ----------------------------------------------------------------------
+
+from ..orbit_correction import bpm_measurements_from_twiss, normalise_bpm_measurements  # noqa: E402
+
+
+def bpm_geometry_table(twiss_df, planes=("H", "V")):
+    """
+    Build the static bpm/plane/s geometry table from a TWISS DataFrame.
+
+    This needs no EPICS/archiver access at all -- BPM positions are fixed
+    lattice geometry, not something to query live. Run this once per
+    lattice (or cache the result) rather than on every request; the
+    closed_orbit_mm column from bpm_measurements_from_twiss is the model's
+    prediction and is discarded here, not the real measurement.
+    """
+
+    frames = [bpm_measurements_from_twiss(twiss_df, plane=plane) for plane in planes]
+    geometry = pd.concat(frames, ignore_index=True)
+    return geometry.loc[:, ["bpm", "plane", "s"]].copy()
+
+
+def get_bpm_measurements(geometry_table, fetch_value, pv_name_for_bpm, as_of=None, enabled_default=True):
+    """
+    Build a normalised BPM measurement table from live/archived closed-orbit readings.
+
+    geometry_table: DataFrame with bpm/plane/s columns, e.g. from
+        bpm_geometry_table(...). Static lattice geometry, never needs EPICS.
+    fetch_value(pv_name, as_of=None) -> float
+        Reads one BPM's closed_orbit_mm reading.
+    pv_name_for_bpm(bpm_label, plane) -> str
+        Maps a bpm label (e.g. "sp0_r0hm1") to its archiver PV name. This is
+        the piece that is still blocked -- see the module note above.
+
+    Returns a DataFrame in the canonical BPM shape (bpm, plane,
+    closed_orbit_mm, closed_orbit_mm_err, s, enabled), ready for
+    normalise_bpm_table / orbit correction / measured-orbit display.
+    """
+
+    rows = []
+    for _, geo_row in geometry_table.iterrows():
+        pv_name = pv_name_for_bpm(geo_row["bpm"], geo_row["plane"])
+        closed_orbit_mm = fetch_value(pv_name, as_of=as_of)
+        rows.append(
+            {
+                "bpm": geo_row["bpm"],
+                "plane": geo_row["plane"],
+                "closed_orbit_mm": float(closed_orbit_mm),
+                "s": geo_row["s"],
+                "enabled": enabled_default,
+            }
+        )
+
+    return normalise_bpm_measurements(rows, enabled_default=enabled_default)
