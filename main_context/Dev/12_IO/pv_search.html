@@ -1,0 +1,493 @@
+<title>PV Search — ISIS RCS Archiver</title>
+<style>
+  :root{
+    --bg:#eef2f3;
+    --surface:#ffffff;
+    --surface-alt:#e4e9eb;
+    --border:#c7d0d4;
+    --text:#1b2226;
+    --text-muted:#5b6a71;
+    --accent:#a8631a;
+    --accent-ink:#ffffff;
+    --accent-soft:#f3dfc4;
+    --ok:#1f8a5c;
+    --ok-soft:#dcf0e6;
+    --warn:#c23f38;
+    --warn-soft:#f6dcda;
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", "Consolas", "Roboto Mono", monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    --radius: 6px;
+    --shadow: 0 1px 2px rgba(20,26,30,0.06), 0 8px 20px -12px rgba(20,26,30,0.18);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0f1317;
+      --surface:#161c22;
+      --surface-alt:#1d252c;
+      --border:#2b343c;
+      --text:#e7edf1;
+      --text-muted:#93a3ac;
+      --accent:#e0973a;
+      --accent-ink:#1b1103;
+      --accent-soft:rgba(224,151,58,0.16);
+      --ok:#4fae82;
+      --ok-soft:rgba(79,174,130,0.14);
+      --warn:#e2685f;
+      --warn-soft:rgba(226,104,95,0.14);
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0f1317; --surface:#161c22; --surface-alt:#1d252c; --border:#2b343c;
+    --text:#e7edf1; --text-muted:#93a3ac; --accent:#e0973a; --accent-ink:#1b1103;
+    --accent-soft:rgba(224,151,58,0.16); --ok:#4fae82; --ok-soft:rgba(79,174,130,0.14);
+    --warn:#e2685f; --warn-soft:rgba(226,104,95,0.14);
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
+  }
+  :root[data-theme="light"]{
+    --bg:#eef2f3; --surface:#ffffff; --surface-alt:#e4e9eb; --border:#c7d0d4;
+    --text:#1b2226; --text-muted:#5b6a71; --accent:#a8631a; --accent-ink:#ffffff;
+    --accent-soft:#f3dfc4; --ok:#1f8a5c; --ok-soft:#dcf0e6; --warn:#c23f38; --warn-soft:#f6dcda;
+    --shadow: 0 1px 2px rgba(20,26,30,0.06), 0 8px 20px -12px rgba(20,26,30,0.18);
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--sans);
+    font-size:14px;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  ::selection{ background:var(--accent-soft); }
+
+  .wrap{ max-width:1180px; margin:0 auto; padding:28px 20px 64px; }
+
+  header.top{
+    display:flex; align-items:flex-end; justify-content:space-between; gap:16px;
+    padding-bottom:18px; margin-bottom:20px; border-bottom:1px solid var(--border);
+  }
+  .eyebrow{
+    font-size:11px; font-weight:700; letter-spacing:.09em; text-transform:uppercase;
+    color:var(--accent); margin:0 0 6px;
+  }
+  h1{ font-size:23px; font-weight:650; letter-spacing:-0.01em; margin:0; text-wrap:balance; }
+  .stats{ text-align:right; font-family:var(--mono); font-size:12.5px; color:var(--text-muted); }
+  .stats strong{ color:var(--text); font-weight:600; font-variant-numeric:tabular-nums; }
+
+  .panel{
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    box-shadow:var(--shadow);
+  }
+
+  .controls{ padding:16px; margin-bottom:16px; display:flex; flex-direction:column; gap:12px; }
+
+  .search-row{ display:flex; gap:8px; align-items:stretch; }
+  .search-row input[type="text"]{
+    flex:1; min-width:0; font-family:var(--mono); font-size:13.5px;
+    background:var(--bg); color:var(--text); border:1px solid var(--border);
+    border-radius:var(--radius); padding:10px 12px; outline:none;
+    transition:border-color .12s ease, box-shadow .12s ease;
+  }
+  .search-row input[type="text"]:focus{
+    border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft);
+  }
+  .search-row input.invalid{ border-color:var(--warn); box-shadow:0 0 0 3px var(--warn-soft); }
+
+  button{
+    font-family:var(--sans); font-size:13px; font-weight:600; cursor:pointer;
+    border-radius:var(--radius); border:1px solid var(--border); background:var(--surface);
+    color:var(--text); padding:9px 13px; transition:background .12s ease, border-color .12s ease, color .12s ease;
+  }
+  button:hover{ border-color:var(--accent); }
+  button:focus-visible, input:focus-visible, summary:focus-visible{
+    outline:2px solid var(--accent); outline-offset:2px;
+  }
+  button.toggle{ font-family:var(--mono); font-weight:700; letter-spacing:.02em; min-width:76px; }
+  button.toggle[aria-pressed="true"]{
+    background:var(--accent); border-color:var(--accent); color:var(--accent-ink);
+  }
+  button.primary{ background:var(--accent); border-color:var(--accent); color:var(--accent-ink); }
+
+  .chips{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  .chip{
+    font-family:var(--mono); font-size:12px; padding:6px 11px; border-radius:999px;
+    border:1px solid var(--border); background:var(--surface-alt); color:var(--text-muted);
+    cursor:pointer; user-select:none; transition:all .12s ease;
+  }
+  .chip:hover{ color:var(--text); border-color:var(--accent); }
+  .chip[aria-pressed="true"]{
+    background:var(--accent-soft); border-color:var(--accent); color:var(--text); font-weight:600;
+  }
+  .chip-label{ font-family:var(--sans); font-size:11px; text-transform:uppercase; letter-spacing:.07em; color:var(--text-muted); margin-right:2px; }
+
+  details.loader{ border-top:1px solid var(--border); padding-top:12px; }
+  details.loader summary{
+    cursor:pointer; font-size:12.5px; font-weight:600; color:var(--text-muted);
+    list-style:none; display:flex; align-items:center; gap:6px;
+  }
+  details.loader summary::before{ content:"▸"; color:var(--accent); transition:transform .12s ease; }
+  details.loader[open] summary::before{ transform:rotate(90deg); }
+  details.loader summary::-webkit-details-marker{ display:none; }
+  .loader-body{ display:flex; flex-direction:column; gap:8px; margin-top:10px; }
+  textarea{
+    width:100%; min-height:120px; font-family:var(--mono); font-size:12px;
+    background:var(--bg); color:var(--text); border:1px solid var(--border);
+    border-radius:var(--radius); padding:10px; resize:vertical; outline:none;
+  }
+  textarea:focus{ border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
+  .loader-actions{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .hint{ font-size:12px; color:var(--text-muted); }
+  .hint code{ font-family:var(--mono); background:var(--surface-alt); padding:1px 5px; border-radius:4px; }
+
+  .table-shell{ overflow-x:auto; border-radius:var(--radius); }
+  table{ width:100%; border-collapse:collapse; font-size:13px; min-width:760px; }
+  thead th{
+    position:sticky; top:0; background:var(--surface-alt); text-align:left;
+    font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted);
+    font-weight:700; padding:10px 12px; border-bottom:1px solid var(--border); white-space:nowrap;
+  }
+  tbody td{ padding:9px 12px; border-bottom:1px solid var(--border); vertical-align:middle; }
+  tbody tr:hover{ background:var(--surface-alt); }
+  td.pvname{ font-family:var(--mono); font-size:12.5px; word-break:break-all; }
+  td.pvname mark{ background:var(--accent-soft); color:var(--text); border-radius:3px; padding:0 1px; }
+  .tag{
+    display:inline-flex; align-items:center; gap:4px; font-family:var(--mono); font-size:11.5px;
+    background:var(--surface-alt); border:1px solid var(--border); border-radius:5px; padding:2px 7px;
+    color:var(--text-muted); white-space:nowrap;
+  }
+  .dash{ color:var(--text-muted); }
+  .pill{ display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:600; white-space:nowrap; }
+  .dot{ width:7px; height:7px; border-radius:50%; flex:none; }
+  .pill.ok .dot{ background:var(--ok); } .pill.ok{ color:var(--ok); }
+  .pill.warn .dot{ background:var(--warn); } .pill.warn{ color:var(--warn); }
+
+  .empty{ padding:48px 20px; text-align:center; color:var(--text-muted); }
+  .empty h2{ font-size:15px; color:var(--text); margin:0 0 6px; }
+  .empty p{ margin:0 auto; max-width:420px; font-size:13px; }
+
+  footer{ margin-top:18px; font-size:12px; color:var(--text-muted); }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <p class="eyebrow">EPICS Archiver Appliance</p>
+      <h1>PV Search</h1>
+    </div>
+    <div class="stats" id="stats">no data loaded</div>
+  </header>
+
+  <div class="panel controls">
+    <div class="search-row">
+      <input type="text" id="search" placeholder="Search PV names… try HD1:CURRENT or a regex like R\d(HD1|VD1|QT[DF])" autocomplete="off" spellcheck="false" aria-label="Search PV names" />
+      <button class="toggle" id="regexToggle" type="button" aria-pressed="false" title="Toggle regex mode">.*</button>
+    </div>
+
+    <div class="chips" id="presetChips">
+      <span class="chip-label">Quick filters</span>
+      <button class="chip" type="button" data-pattern="" aria-pressed="true">All</button>
+      <button class="chip" type="button" data-pattern="HD1:CURRENT">HD correctors</button>
+      <button class="chip" type="button" data-pattern="VD1:CURRENT">VD correctors</button>
+      <button class="chip" type="button" data-pattern="QT[DF]:CURRENT">Trim quads</button>
+      <button class="chip" type="button" data-pattern="(HD1|VD1|QT[DF]):CURRENT">Correctors + quads</button>
+      <button class="chip" type="button" id="connectedChip" aria-pressed="false">Connected only</button>
+      <button class="chip" type="button" id="nonTestChip" aria-pressed="false">Exclude _TEST</button>
+    </div>
+
+    <details class="loader" id="loaderDetails">
+      <summary>Load / replace PV list</summary>
+      <div class="loader-body">
+        <textarea id="pasteArea" placeholder="Paste the JSON array from getAllPVs here (the same thing you pasted into the chat) — or click &quot;Load example rows&quot; below to try the tool first."></textarea>
+        <div class="loader-actions">
+          <button class="primary" id="loadBtn" type="button">Load pasted data</button>
+          <button id="exampleBtn" type="button">Load example rows</button>
+          <button id="clearBtn" type="button">Clear all data</button>
+          <span class="hint" id="loadMsg"></span>
+        </div>
+        <p class="hint">Data stays in this browser tab only (saved via <code>localStorage</code>) — nothing is sent anywhere. Re-paste any time the archiver list changes.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="panel">
+    <div class="table-shell" id="tableShell">
+      <div class="empty" id="emptyState">
+        <h2>No PVs loaded yet</h2>
+        <p>Open “Load / replace PV list” above, paste your <code>getAllPVs</code> JSON, and click Load — or try “Load example rows” to see it work with a handful of real ISIS corrector and trim-quad PVs first.</p>
+      </div>
+    </div>
+  </div>
+
+  <footer>Superperiod / family / cycle-time columns are parsed from PV names matching <code>R&lt;n&gt;(HD1|VD1|QTD|QTF):CURRENT:&lt;time&gt;MS</code>; other PVs just show the raw name.</footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var STORAGE_KEY = "isis_pv_search_data_v1";
+  var allPvs = [];
+  var state = { text: "", regexMode: false, connectedOnly: false, nonTestOnly: false };
+
+  var searchInput = document.getElementById("search");
+  var regexToggle = document.getElementById("regexToggle");
+  var presetChips = document.getElementById("presetChips");
+  var connectedChip = document.getElementById("connectedChip");
+  var nonTestChip = document.getElementById("nonTestChip");
+  var tableShell = document.getElementById("tableShell");
+  var statsEl = document.getElementById("stats");
+  var loadBtn = document.getElementById("loadBtn");
+  var exampleBtn = document.getElementById("exampleBtn");
+  var clearBtn = document.getElementById("clearBtn");
+  var pasteArea = document.getElementById("pasteArea");
+  var loadMsg = document.getElementById("loadMsg");
+  var loaderDetails = document.getElementById("loaderDetails");
+
+  var EXAMPLE_ROWS = [
+    {n:"DWHST_TEST::R0HD1:CURRENT:0MS", a:"appliance0", c:true, s:"1.0", l:"Jul/16/2026 11:03:40 BST"},
+    {n:"DWHST_TEST::R0HD1:CURRENT:2.5MS", a:"appliance0", c:true, s:"1.0", l:"Jul/16/2026 11:04:44 BST"},
+    {n:"DWHST_TEST::R2HD1:CURRENT:0MS", a:"appliance0", c:true, s:"1.0", l:"Jul/16/2026 11:03:49 BST"},
+    {n:"DWHST_TEST::R9HD1:CURRENT:0MS", a:"appliance0", c:true, s:"1.0", l:"Jul/16/2026 11:03:42 BST"},
+    {n:"DWVST_TEST::R0VD1:CURRENT:0MS", a:"appliance0", c:true, s:"1.0", l:"Jul/16/2026 11:04:27 BST"},
+    {n:"DWVST_TEST::R0VD1:CURRENT:2MS", a:"appliance0", c:true, s:"1.0", l:"Jul/16/2026 11:03:36 BST"},
+    {n:"DWVST_TEST::R2VD1:CURRENT:1MS", a:"appliance0", c:true, s:"1.0", l:"Jul/16/2026 11:03:53 BST"},
+    {n:"DWVST_TEST::R9VD1:CURRENT:0MS", a:"appliance0", c:true, s:"1.0", l:"Jul/16/2026 11:04:09 BST"},
+    {n:"DWQ_TEST::R0QTD:CURRENT:0MS", a:"appliance0", c:true, s:"1.0", l:"Jul/16/2026 11:04:42 BST"},
+    {n:"DWQ_TEST::R0QTD:CURRENT:2.5MS", a:"appliance0", c:true, s:"1.0", l:"Jul/16/2026 11:04:10 BST"},
+    {n:"DWQ_TEST::R0QTF:CURRENT:0MS", a:"appliance1", c:true, s:"1.0", l:"Jul/16/2026 11:04:32 BST"},
+    {n:"DWQ_TEST::R0QTF:CURRENT:1MS", a:"appliance0", c:true, s:"1.0", l:"Jul/16/2026 11:03:38 BST"},
+    {n:"DWQ_TEST::R1QTD:CURRENT:0MS", a:"appliance0", c:true, s:"1.0", l:"Jul/16/2026 11:03:40 BST"},
+    {n:"DWQ_TEST::R1QTF:CURRENT:1MS", a:"appliance0", c:true, s:"1.0", l:"Jul/16/2026 11:03:47 BST"},
+    {n:"DWQ_TEST::R6QTD:CURRENT:0MS", a:"appliance0", c:true, s:"1.0", l:"Jul/16/2026 11:03:44 BST"},
+    {n:"DWQ_TEST::R8QTF:CURRENT:0MS", a:"appliance0", c:true, s:"1.0", l:"Jul/16/2026 11:03:59 BST"},
+    {n:"CPSEPICSTST::TESTDB:TYPEG_IN1", a:"appliance0", c:false, s:"1.0", l:"Never"},
+    {n:"R4TQTEST::QUAD:NORM:DAT", a:"appliance0", c:true, s:"1.0", l:"Jul/16/2026 11:04:46 BST"}
+  ];
+
+  function normalizeRecord(raw){
+    var name = raw.pvName || raw.pvNameOnly || raw.n;
+    if(!name) return null;
+    var appliance = raw.appliance || raw.a || "";
+    var connected = raw.connectionState;
+    if(typeof connected === "string") connected = connected === "true";
+    if(typeof raw.c === "boolean") connected = raw.c;
+    var sampling = raw.samplingPeriod || raw.s || "";
+    var lastEvent = raw.lastEvent || raw.l || "";
+    return { n:name, a:appliance, c: !!connected, s: sampling, l: lastEvent };
+  }
+
+  function parsePastedData(raw){
+    raw = raw.trim();
+    if(!raw) return [];
+    try{
+      var parsed = JSON.parse(raw);
+      if(Array.isArray(parsed)){
+        return parsed.map(normalizeRecord).filter(Boolean);
+      }
+    }catch(e){ /* fall through to regex recovery */ }
+
+    var out = [];
+    var re = /"pvName"\s*:\s*"([^"]+)"[\s\S]*?"connectionState"\s*:\s*"?(true|false)"?[\s\S]*?"samplingPeriod"\s*:\s*"([^"]*)"[\s\S]*?"lastEvent"\s*:\s*"([^"]*)"/g;
+    var applianceRe = /"appliance"\s*:\s*"([^"]+)"/;
+    var chunks = raw.split(/\}\s*,\s*\{/);
+    for(var i=0;i<chunks.length;i++){
+      var chunk = chunks[i];
+      var nameMatch = chunk.match(/"pvName"\s*:\s*"([^"]+)"/);
+      if(!nameMatch) continue;
+      var applMatch = chunk.match(applianceRe);
+      var connMatch = chunk.match(/"connectionState"\s*:\s*"?(true|false)"?/);
+      var sampMatch = chunk.match(/"samplingPeriod"\s*:\s*"([^"]*)"/);
+      var lastMatch = chunk.match(/"lastEvent"\s*:\s*"([^"]*)"/);
+      out.push({
+        n: nameMatch[1],
+        a: applMatch ? applMatch[1] : "",
+        c: connMatch ? connMatch[1] === "true" : false,
+        s: sampMatch ? sampMatch[1] : "",
+        l: lastMatch ? lastMatch[1] : ""
+      });
+    }
+    return out;
+  }
+
+  function saveToStorage(){
+    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(allPvs)); }catch(e){}
+  }
+  function loadFromStorage(){
+    try{
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if(raw){ allPvs = JSON.parse(raw); }
+    }catch(e){ allPvs = []; }
+  }
+
+  function escapeRegExp(str){ return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
+  function escapeHtml(str){
+    return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  }
+
+  var MAGNET_RE = /R(\d)(HD1|VD1|QTD|QTF)[^:]*:CURRENT:([-\d.]+)MS/i;
+  function parseMagnet(name){
+    var m = name.match(MAGNET_RE);
+    if(!m) return null;
+    return { sp:m[1], family:m[2].toUpperCase(), cycle:m[3] };
+  }
+
+  function buildMatcher(){
+    var text = state.text;
+    if(!text) return { test:function(){ return true; }, highlight:null };
+    if(state.regexMode){
+      try{
+        var re = new RegExp(text, "gi");
+        searchInput.classList.remove("invalid");
+        return { test:function(name){ re.lastIndex = 0; return re.test(name); }, highlight: re };
+      }catch(e){
+        searchInput.classList.add("invalid");
+        return { test:function(){ return true; }, highlight:null };
+      }
+    }
+    searchInput.classList.remove("invalid");
+    var plainRe = new RegExp(escapeRegExp(text), "gi");
+    return { test:function(name){ plainRe.lastIndex = 0; return plainRe.test(name); }, highlight: plainRe };
+  }
+
+  function highlightName(name, highlightRe){
+    if(!highlightRe) return escapeHtml(name);
+    var re = new RegExp(highlightRe.source, highlightRe.flags.indexOf("g") === -1 ? highlightRe.flags + "g" : highlightRe.flags);
+    var out = ""; var last = 0; var match; var guard = 0;
+    while((match = re.exec(name)) !== null && guard < 500){
+      guard++;
+      if(match[0].length === 0){ re.lastIndex++; continue; }
+      out += escapeHtml(name.slice(last, match.index));
+      out += "<mark>" + escapeHtml(match[0]) + "</mark>";
+      last = match.index + match[0].length;
+    }
+    out += escapeHtml(name.slice(last));
+    return out;
+  }
+
+  function render(){
+    var matcher = buildMatcher();
+    var rows = allPvs.filter(function(row){
+      if(state.connectedOnly && !row.c) return false;
+      if(state.nonTestOnly && /_TEST/i.test(row.n)) return false;
+      return matcher.test(row.n);
+    });
+
+    statsEl.innerHTML = allPvs.length
+      ? "<strong>" + rows.length + "</strong> / " + allPvs.length + " PVs shown"
+      : "no data loaded";
+
+    if(allPvs.length === 0){
+      tableShell.innerHTML = '<div class="empty" id="emptyState"><h2>No PVs loaded yet</h2>' +
+        '<p>Open &ldquo;Load / replace PV list&rdquo; above, paste your <code>getAllPVs</code> JSON, and click Load &mdash; or try &ldquo;Load example rows&rdquo; to see it work first.</p></div>';
+      return;
+    }
+    if(rows.length === 0){
+      tableShell.innerHTML = '<div class="empty"><h2>No matches</h2><p>Nothing matches this search and filter combination. Try a broader pattern or clear a filter chip.</p></div>';
+      return;
+    }
+
+    var html = '<table><thead><tr>' +
+      '<th>PV name</th><th>Magnet</th><th>Cycle</th><th>Appliance</th><th>Status</th><th>Sample&nbsp;period</th>' +
+      '</tr></thead><tbody>';
+
+    rows.forEach(function(row){
+      var mag = parseMagnet(row.n);
+      var magCell = mag ? '<span class="tag">R' + mag.sp + ' · ' + mag.family + '</span>' : '<span class="dash">—</span>';
+      var cycleCell = mag ? '<span class="tag">' + mag.cycle + '&nbsp;ms</span>' : '<span class="dash">—</span>';
+      var statusCell = row.c
+        ? '<span class="pill ok"><span class="dot"></span>connected</span>'
+        : '<span class="pill warn"><span class="dot"></span>disconnected</span>';
+      html += '<tr>' +
+        '<td class="pvname">' + highlightName(row.n, matcher.highlight) + '</td>' +
+        '<td>' + magCell + '</td>' +
+        '<td>' + cycleCell + '</td>' +
+        '<td class="pvname">' + escapeHtml(row.a || "—") + '</td>' +
+        '<td>' + statusCell + '</td>' +
+        '<td class="pvname">' + escapeHtml(row.s || "—") + '</td>' +
+        '</tr>';
+    });
+
+    html += '</tbody></table>';
+    tableShell.innerHTML = html;
+  }
+
+  searchInput.addEventListener("input", function(){
+    state.text = searchInput.value;
+    presetChips.querySelectorAll(".chip[data-pattern]").forEach(function(chip){
+      chip.setAttribute("aria-pressed", chip.dataset.pattern === state.text ? "true" : "false");
+    });
+    render();
+  });
+
+  regexToggle.addEventListener("click", function(){
+    state.regexMode = !state.regexMode;
+    regexToggle.setAttribute("aria-pressed", String(state.regexMode));
+    regexToggle.title = state.regexMode ? "Regex mode on — click for plain text" : "Plain text mode — click for regex";
+    render();
+  });
+
+  presetChips.querySelectorAll(".chip[data-pattern]").forEach(function(chip){
+    chip.addEventListener("click", function(){
+      var pattern = chip.dataset.pattern;
+      searchInput.value = pattern;
+      state.text = pattern;
+      state.regexMode = pattern.length > 0 ? true : state.regexMode;
+      regexToggle.setAttribute("aria-pressed", String(state.regexMode));
+      presetChips.querySelectorAll(".chip[data-pattern]").forEach(function(c){
+        c.setAttribute("aria-pressed", c === chip ? "true" : "false");
+      });
+      render();
+    });
+  });
+
+  connectedChip.addEventListener("click", function(){
+    state.connectedOnly = !state.connectedOnly;
+    connectedChip.setAttribute("aria-pressed", String(state.connectedOnly));
+    render();
+  });
+  nonTestChip.addEventListener("click", function(){
+    state.nonTestOnly = !state.nonTestOnly;
+    nonTestChip.setAttribute("aria-pressed", String(state.nonTestOnly));
+    render();
+  });
+
+  loadBtn.addEventListener("click", function(){
+    var parsed = parsePastedData(pasteArea.value);
+    if(parsed.length === 0){
+      loadMsg.textContent = "Couldn't find any PVs in that text — check it's the JSON from getAllPVs.";
+      loadMsg.style.color = "var(--warn)";
+      return;
+    }
+    allPvs = parsed;
+    saveToStorage();
+    loadMsg.textContent = "Loaded " + parsed.length + " PVs.";
+    loadMsg.style.color = "var(--ok)";
+    loaderDetails.open = false;
+    render();
+  });
+
+  exampleBtn.addEventListener("click", function(){
+    allPvs = EXAMPLE_ROWS.slice();
+    saveToStorage();
+    loadMsg.textContent = "Loaded " + allPvs.length + " example rows.";
+    loadMsg.style.color = "var(--ok)";
+    loaderDetails.open = false;
+    render();
+  });
+
+  clearBtn.addEventListener("click", function(){
+    allPvs = [];
+    pasteArea.value = "";
+    try{ localStorage.removeItem(STORAGE_KEY); }catch(e){}
+    loadMsg.textContent = "Cleared.";
+    loadMsg.style.color = "var(--text-muted)";
+    render();
+  });
+
+  loadFromStorage();
+  render();
+})();
+</script>
