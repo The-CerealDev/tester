@@ -328,9 +328,18 @@ def get_trim_quad_currents(
 #       DEFAULT_BASE_QY.
 #   DWTRIM::{D7,D8,F8}{SIN,COS}:AT_TIME:<ms>MS -- harmonic-correction
 #       amplitudes. DEFAULT_HARMONICS also expects F9SIN/F9COS; those two
-#       were NOT found on this archiver (glob for *F9SIN*/*F9COS* -> zero
-#       results) -- get_harmonic_tunes() reports them as missing rather
-#       than inventing a value.
+#       were NOT found on this archiver -- exhaustively checked (every
+#       case/separator variant, *F9* anywhere on the whole archiver not
+#       just DWTRIM, DWTRIM::* re-confirmed at its real uncapped total of
+#       213 PVs) so this isn't a naming miss on our end. tune_plots.py
+#       shows why this is worth asking staff about rather than shrugging
+#       off: D7/D8 modulate qtd_k and F8/F9 modulate qtf_k as a matched
+#       pair of harmonics per family (7th+8th for D, 8th+9th for F) -- F9
+#       is structurally as load-bearing as F8, which does exist live, so
+#       this looks like this test rig just never had F9 wired up rather
+#       than the real machine lacking 9th-harmonic correction entirely.
+#       get_harmonic_tunes() reports both as missing rather than inventing
+#       a value either way.
 #
 # So set_qx/set_qy is read directly per cycle time now, not derived by
 # averaging the 10 superperiods' QTD/QTF currents and reversing the
