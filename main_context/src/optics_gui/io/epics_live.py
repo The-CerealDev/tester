@@ -222,3 +222,138 @@ def get_bpm_measurements(geometry_table, fetch_value, pv_name_for_bpm, as_of=Non
         )
 
     return normalise_bpm_table(rows, enabled_default=enabled_default)
+
+
+# ----------------------------------------------------------------------
+# Trim quads / requested tune -- confirmed there is no "target tune" PV
+# on the real machine (searched the full archiver PV list for TUNE, QX,
+# QY, QH, QV, WORKING_POINT, SETPOINT, PROGRAM, RESONANCE, TARGET: zero
+# matches). Tune is only ever set indirectly via trim-quad currents, so
+# A3's set_qx/set_qy has to be derived from real QTD/QTF readings by
+# reversing the model's own tune-control equations.
+#
+# NOT CONFIRMED WITH STAFF: there are 10 independent QTD/QTF pairs (one
+# per superperiod), but the model's tune-control equations expect a
+# single global iqtf_A/iqtd_A pair. get_requested_tune() averages across
+# superperiods to bridge that gap -- that averaging is a physics
+# assumption, not a confirmed rule. Treat the derived tune as a rough
+# estimate until staff confirm how the real per-superperiod currents
+# should combine.
+# ----------------------------------------------------------------------
+
+from ..machine_state_defaults import DEFAULT_BASE_QX, DEFAULT_BASE_QY  # noqa: E402
+from ..tune_control import trim_quad_current_to_tune_di  # noqa: E402
+
+DEFAULT_QT_IOC = "DWQ_TEST"
+TRIM_QUAD_SUPERPERIODS = range(10)
+
+
+def trim_quad_device_name(superperiod, family):
+    """
+    Return the package-style trim-quad device name, e.g. "r0qtd".
+    """
+
+    family = str(family).upper()
+    if family not in ("QTD", "QTF"):
+        raise ValueError("family must be 'QTD' or 'QTF'.")
+    return f"r{int(superperiod)}{family.lower()}"
+
+
+def trim_quad_pv_name(superperiod, family, cycle_time_ms, ioc=DEFAULT_QT_IOC):
+    """
+    Return the archiver PV name for one trim quad at one cycle time.
+    """
+
+    family = str(family).upper()
+    device = f"R{int(superperiod)}{family}"
+    return f"{ioc}::{device}:CURRENT:{_format_ms(cycle_time_ms)}MS"
+
+
+def get_trim_quad_currents(
+    cycle_time_ms,
+    fetch_value,
+    list_available_times,
+    as_of=None,
+    superperiods=TRIM_QUAD_SUPERPERIODS,
+    ioc=DEFAULT_QT_IOC,
+):
+    """
+    Fetch real per-superperiod QTD/QTF currents. Same injected-callable
+    pattern as get_corrector_settings, for the same reason.
+
+    Returns (currents, missing): currents is a dict keyed by
+    (superperiod, family) -> current_A; missing is a list of
+    (superperiod, family) pairs with no available sample at or before
+    cycle_time_ms.
+    """
+
+    currents = {}
+    missing = []
+
+    for superperiod in superperiods:
+        for family in ("QTD", "QTF"):
+            device = trim_quad_device_name(superperiod, family)
+            available = list_available_times(device, family)
+            resolved_time = nearest_cycle_time(available, cycle_time_ms)
+            if resolved_time is None:
+                missing.append((superperiod, family))
+                continue
+
+            pv_name = trim_quad_pv_name(superperiod, family, resolved_time, ioc=ioc)
+            currents[(superperiod, family)] = fetch_value(pv_name, as_of=as_of)
+
+    return currents, missing
+
+
+def get_requested_tune(
+    cycle_time_ms,
+    fetch_value,
+    list_available_times,
+    beam_state,
+    as_of=None,
+    superperiods=TRIM_QUAD_SUPERPERIODS,
+    base_qx=DEFAULT_BASE_QX,
+    base_qy=DEFAULT_BASE_QY,
+):
+    """
+    Derive (set_qx, set_qy) for one A3 timepoint row from real trim-quad
+    currents, by averaging the per-superperiod QTD/QTF readings into a
+    single pair and reversing the model's own Di Wright equations
+    (trim_quad_current_to_tune_di). See the module note above -- the
+    averaging step is not confirmed with staff.
+
+    Returns (row, missing): row is a dict {cycle_time_ms, set_qx, set_qy,
+    iqtf_A, iqtd_A} ready to feed into snapshot_configs_from_table, or
+    None if no trim quads had any data. missing is passed through from
+    get_trim_quad_currents so an incomplete average is still visible.
+    """
+
+    currents, missing = get_trim_quad_currents(
+        cycle_time_ms, fetch_value, list_available_times, as_of=as_of, superperiods=superperiods
+    )
+
+    qtd_values = [value for (superperiod, family), value in currents.items() if family == "QTD"]
+    qtf_values = [value for (superperiod, family), value in currents.items() if family == "QTF"]
+
+    if not qtd_values or not qtf_values:
+        return None, missing
+
+    iqtd_A = sum(qtd_values) / len(qtd_values)
+    iqtf_A = sum(qtf_values) / len(qtf_values)
+
+    qx, qy = trim_quad_current_to_tune_di(
+        iqtf_A=iqtf_A,
+        iqtd_A=iqtd_A,
+        base_qx=base_qx,
+        base_qy=base_qy,
+        pn=float(beam_state.normalised_momentum),
+    )
+
+    row = {
+        "cycle_time_ms": float(cycle_time_ms),
+        "set_qx": qx,
+        "set_qy": qy,
+        "iqtf_A": iqtf_A,
+        "iqtd_A": iqtd_A,
+    }
+    return row, missing
