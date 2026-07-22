@@ -225,24 +225,11 @@ def get_bpm_measurements(geometry_table, fetch_value, pv_name_for_bpm, as_of=Non
 
 
 # ----------------------------------------------------------------------
-# Trim quads / requested tune -- confirmed there is no "target tune" PV
-# on the real machine (searched the full archiver PV list for TUNE, QX,
-# QY, QH, QV, WORKING_POINT, SETPOINT, PROGRAM, RESONANCE, TARGET: zero
-# matches). Tune is only ever set indirectly via trim-quad currents, so
-# A3's set_qx/set_qy has to be derived from real QTD/QTF readings by
-# reversing the model's own tune-control equations.
-#
-# NOT CONFIRMED WITH STAFF: there are 10 independent QTD/QTF pairs (one
-# per superperiod), but the model's tune-control equations expect a
-# single global iqtf_A/iqtd_A pair. get_requested_tune() averages across
-# superperiods to bridge that gap -- that averaging is a physics
-# assumption, not a confirmed rule. Treat the derived tune as a rough
-# estimate until staff confirm how the real per-superperiod currents
-# should combine.
+# Trim quads -- real per-superperiod QTD/QTF currents, one IOC per
+# superperiod pair (same DWQ_TEST convention as the correctors). Still
+# useful as raw diagnostic data even though get_requested_tune() below no
+# longer derives tune from these (see the DWTRIM note further down).
 # ----------------------------------------------------------------------
-
-from ..machine_state_defaults import DEFAULT_BASE_QX, DEFAULT_BASE_QY  # noqa: E402
-from ..tune_control import trim_quad_current_to_tune_di  # noqa: E402
 
 DEFAULT_QT_IOC = "DWQ_TEST"
 TRIM_QUAD_SUPERPERIODS = range(10)
@@ -305,55 +292,125 @@ def get_trim_quad_currents(
     return currents, missing
 
 
+# ----------------------------------------------------------------------
+# Requested tune / harmonics -- confirmed live on the real archiver, via
+# a real DWTRIM IOC that earlier PV-name searches (TUNE, QX, QY, QH, QV,
+# WORKING_POINT, SETPOINT, PROGRAM, RESONANCE, TARGET against the small
+# TEST_PV.txt export) had missed entirely because that export didn't
+# include DWTRIM at all:
+#
+#   DWTRIM::H_Q:AT_TIME:<ms>MS   -- real tune setpoint, horizontal.
+#       DWTRIM::H_Q:AT_TIME:0MS fetched live = 4.331, exactly
+#       DEFAULT_BASE_QX -- confirms this is the real set_qx PV, not a
+#       derived/estimated value.
+#   DWTRIM::V_Q:AT_TIME:<ms>MS   -- real tune setpoint, vertical.
+#       DWTRIM::V_Q:AT_TIME:0MS fetched live = 3.731, exactly
+#       DEFAULT_BASE_QY.
+#   DWTRIM::{D7,D8,F8}{SIN,COS}:AT_TIME:<ms>MS -- harmonic-correction
+#       amplitudes. DEFAULT_HARMONICS also expects F9SIN/F9COS; those two
+#       were NOT found on this archiver (glob for *F9SIN*/*F9COS* -> zero
+#       results) -- get_harmonic_tunes() reports them as missing rather
+#       than inventing a value.
+#
+# So set_qx/set_qy is read directly per cycle time now, not derived by
+# averaging the 10 superperiods' QTD/QTF currents and reversing the
+# model's tune-control equations -- H_Q/V_Q are each already the single
+# real setpoint for that instant, so there is nothing to average.
+# ----------------------------------------------------------------------
+
+from collections import OrderedDict  # noqa: E402
+
+DEFAULT_DWTRIM_IOC = "DWTRIM"
+HARMONIC_KEYS = ("D7SIN", "D7COS", "D8SIN", "D8COS", "F8SIN", "F8COS", "F9SIN", "F9COS")
+
+
+def dwtrim_pv_name(signal, cycle_time_ms, ioc=DEFAULT_DWTRIM_IOC):
+    """
+    Return the archiver PV name for one DWTRIM ":AT_TIME:" signal at one
+    cycle time, e.g. dwtrim_pv_name("H_Q", 0) -> "DWTRIM::H_Q:AT_TIME:0MS".
+    """
+
+    return f"{ioc}::{signal}:AT_TIME:{_format_ms(cycle_time_ms)}MS"
+
+
 def get_requested_tune(
     cycle_time_ms,
     fetch_value,
-    list_available_times,
-    beam_state,
+    list_available_times_dwtrim,
     as_of=None,
-    superperiods=TRIM_QUAD_SUPERPERIODS,
-    base_qx=DEFAULT_BASE_QX,
-    base_qy=DEFAULT_BASE_QY,
+    ioc=DEFAULT_DWTRIM_IOC,
 ):
     """
-    Derive (set_qx, set_qy) for one A3 timepoint row from real trim-quad
-    currents, by averaging the per-superperiod QTD/QTF readings into a
-    single pair and reversing the model's own Di Wright equations
-    (trim_quad_current_to_tune_di). See the module note above -- the
-    averaging step is not confirmed with staff.
+    Read (set_qx, set_qy) for one A3 timepoint row directly from the real
+    DWTRIM::H_Q / DWTRIM::V_Q tune-setpoint PVs -- see the module note
+    above for the live confirmation. Each is resolved independently to
+    its own nearest-available cycle time at/before cycle_time_ms (no
+    cross-superperiod averaging, since these are already single PVs).
 
-    Returns (row, missing): row is a dict {cycle_time_ms, set_qx, set_qy,
-    iqtf_A, iqtd_A} ready to feed into snapshot_configs_from_table, or
-    None if no trim quads had any data. missing is passed through from
-    get_trim_quad_currents so an incomplete average is still visible.
+    list_available_times_dwtrim(signal) -> iterable of float
+        Lists the cycle-time-ms suffixes actually archived for one DWTRIM
+        AT_TIME signal, e.g. epics_archiver_client.archiver_list_available_times_dwtrim.
+
+    Returns (row, missing): row is a dict {cycle_time_ms, set_qx, set_qy}
+    ready to feed into snapshot_configs_from_table, or None if either
+    H_Q or V_Q had no available sample at or before cycle_time_ms.
+    missing lists which of "H_Q"/"V_Q" (if any) were unavailable.
     """
 
-    currents, missing = get_trim_quad_currents(
-        cycle_time_ms, fetch_value, list_available_times, as_of=as_of, superperiods=superperiods
-    )
+    missing = []
+    resolved = {}
 
-    qtd_values = [value for (superperiod, family), value in currents.items() if family == "QTD"]
-    qtf_values = [value for (superperiod, family), value in currents.items() if family == "QTF"]
+    for signal in ("H_Q", "V_Q"):
+        available = list_available_times_dwtrim(signal)
+        resolved_time = nearest_cycle_time(available, cycle_time_ms)
+        if resolved_time is None:
+            missing.append(signal)
+            continue
+        pv_name = dwtrim_pv_name(signal, resolved_time, ioc=ioc)
+        resolved[signal] = float(fetch_value(pv_name, as_of=as_of))
 
-    if not qtd_values or not qtf_values:
+    if "H_Q" not in resolved or "V_Q" not in resolved:
         return None, missing
-
-    iqtd_A = sum(qtd_values) / len(qtd_values)
-    iqtf_A = sum(qtf_values) / len(qtf_values)
-
-    qx, qy = trim_quad_current_to_tune_di(
-        iqtf_A=iqtf_A,
-        iqtd_A=iqtd_A,
-        base_qx=base_qx,
-        base_qy=base_qy,
-        pn=float(beam_state.normalised_momentum),
-    )
 
     row = {
         "cycle_time_ms": float(cycle_time_ms),
-        "set_qx": qx,
-        "set_qy": qy,
-        "iqtf_A": iqtf_A,
-        "iqtd_A": iqtd_A,
+        "set_qx": resolved["H_Q"],
+        "set_qy": resolved["V_Q"],
     }
     return row, missing
+
+
+def get_harmonic_tunes(
+    cycle_time_ms,
+    fetch_value,
+    list_available_times_dwtrim,
+    as_of=None,
+    ioc=DEFAULT_DWTRIM_IOC,
+    keys=HARMONIC_KEYS,
+):
+    """
+    Fetch the harmonic-correction amplitudes that MachineState.harmonic_tunes
+    (DEFAULT_HARMONICS: D7SIN, D7COS, D8SIN, D8COS, F8SIN, F8COS, F9SIN,
+    F9COS) expects, from the real DWTRIM IOC, one cycle time at a time.
+
+    Returns (values, missing): values is an OrderedDict of whichever keys
+    had a real sample at/before cycle_time_ms (in DEFAULT_HARMONICS order,
+    ready to merge into MachineState.harmonic_tunes / a config's
+    "harmonics" column); missing lists the rest -- confirmed live that
+    F9SIN/F9COS are not present on this archiver, so callers should expect
+    those two to come back missing rather than treat it as an error.
+    """
+
+    values = OrderedDict()
+    missing = []
+
+    for key in keys:
+        available = list_available_times_dwtrim(key)
+        resolved_time = nearest_cycle_time(available, cycle_time_ms)
+        if resolved_time is None:
+            missing.append(key)
+            continue
+        pv_name = dwtrim_pv_name(key, resolved_time, ioc=ioc)
+        values[key] = float(fetch_value(pv_name, as_of=as_of))
+
+    return values, missing

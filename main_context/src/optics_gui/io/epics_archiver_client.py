@@ -34,6 +34,15 @@ export):
   largest (secs, nanos) pair, not necessarily the highest-numbered index
   (verified in order for the one PV tested, but sorted explicitly here
   rather than assumed).
+
+There is also a real DWTRIM IOC (confirmed live via /glob, separate from
+the per-superperiod DWQ_TEST trim-quad IOC) exposing single ":AT_TIME:
+<ms>MS" signals instead of ":CURRENT:<ms>MS" -- notably DWTRIM::H_Q and
+DWTRIM::V_Q (the real tune setpoints: DWTRIM::H_Q:AT_TIME:0MS returned
+4.331 live, matching DEFAULT_BASE_QX exactly; DWTRIM::V_Q:AT_TIME:0MS
+returned 3.731, matching DEFAULT_BASE_QY), and the harmonic-correction
+amplitudes DWTRIM::D7SIN/D7COS/D8SIN/D8COS/F8SIN/F8COS (F9SIN/F9COS,
+also expected by DEFAULT_HARMONICS, were not found on this archiver).
 """
 
 from datetime import datetime, timedelta, timezone
@@ -44,6 +53,7 @@ import requests
 DEFAULT_BASE_URL = "http://athena.isis.rl.ac.uk:9506"
 
 _TIME_SUFFIX_RE = re.compile(r":CURRENT:([-\d.]+)MS$", re.IGNORECASE)
+_AT_TIME_SUFFIX_RE = re.compile(r":AT_TIME:([-\d.]+)MS$", re.IGNORECASE)
 
 
 def _iso(moment):
@@ -104,6 +114,28 @@ def archiver_list_available_times(
     times = []
     for name in names:
         match = _TIME_SUFFIX_RE.search(name)
+        if match:
+            times.append(float(match.group(1)))
+    return times
+
+
+def archiver_list_available_times_dwtrim(signal, ioc="DWTRIM", base_url=DEFAULT_BASE_URL, timeout=20):
+    """
+    List the cycle-time-ms suffixes actually archived for one DWTRIM
+    ":AT_TIME:<ms>MS" signal, e.g. "H_Q", "V_Q", "D7SIN", "F8COS".
+
+    Same nearest-cycle-time-fallback role as archiver_list_available_times,
+    but DWTRIM signals are single global PVs (not one per superperiod) and
+    use ":AT_TIME:" rather than ":CURRENT:" as the suffix marker -- real
+    endpoint/shape confirmed live, see the module docstring.
+    """
+
+    pattern = f"{ioc}::{signal}:AT_TIME:*"
+    names = archiver_list_pvs(pattern, base_url=base_url, timeout=timeout)
+
+    times = []
+    for name in names:
+        match = _AT_TIME_SUFFIX_RE.search(name)
         if match:
             times.append(float(match.group(1)))
     return times

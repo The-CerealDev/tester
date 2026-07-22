@@ -13,13 +13,19 @@ from .configs import (
     write_snapshot_config,
     write_snapshot_series_config,
 )
-from .epics_archiver_client import archiver_fetch_value, archiver_list_available_times
+from .epics_archiver_client import (
+    archiver_fetch_value,
+    archiver_list_available_times,
+    archiver_list_available_times_dwtrim,
+)
 from .epics_live import (
     bpm_geometry_table,
     corrector_device_name,
     corrector_pv_name,
+    dwtrim_pv_name,
     get_bpm_measurements,
     get_corrector_settings,
+    get_harmonic_tunes,
     get_requested_tune,
     get_trim_quad_currents,
     nearest_cycle_time,
@@ -37,14 +43,17 @@ __all__ = [
     "ArchivedRun",
     "archiver_fetch_value",
     "archiver_list_available_times",
+    "archiver_list_available_times_dwtrim",
     "bpm_geometry_table",
     "config_from_record",
     "config_to_record",
     "corrector_device_name",
     "corrector_pv_name",
     "corrector_settings_from_table",
+    "dwtrim_pv_name",
     "get_bpm_measurements",
     "get_corrector_settings",
+    "get_harmonic_tunes",
     "get_requested_tune",
     "get_trim_quad_currents",
     "nearest_cycle_time",

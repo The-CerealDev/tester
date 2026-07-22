@@ -2,17 +2,14 @@
 archiver_live_app.py
 
 Tiny Streamlit app wiring the real EPICS archiver client
-(optics_gui.io.epics_archiver_client) to the real corrector/BPM builders
-(optics_gui.io.epics_live). This is the actual "live" tool -- unlike a
-hosted artifact, it runs locally and can reach the ISIS network directly.
+(optics_gui.io.epics_archiver_client) to the real corrector/BPM/tune
+builders (optics_gui.io.epics_live). This is the actual "live" tool --
+unlike a hosted artifact, it runs locally and can reach the ISIS network
+directly.
 
-Run it once you're on the network and have the archiver's real host/port:
+Run it once you're on the network:
 
     streamlit run Dev/12_IO/archiver_live_app.py
-
-Nothing here fabricates a connection: both archiver URL fields are blank
-by default, and every fetch button fails with a clear message if you try
-to run it without them, exactly like the underlying Python functions do.
 """
 
 import sys
@@ -28,10 +25,14 @@ import streamlit as st
 from optics_gui.io import (
     archiver_fetch_value,
     archiver_list_available_times,
+    archiver_list_available_times_dwtrim,
     bpm_geometry_table,
     get_bpm_measurements,
     get_corrector_settings,
+    get_harmonic_tunes,
+    get_requested_tune,
 )
+from optics_gui.io.epics_archiver_client import DEFAULT_BASE_URL
 from optics_gui.machine_state import MachineState
 from optics_gui.cycle_time import RCSRamp
 from optics_gui.madx_model import MadxModel
@@ -40,40 +41,36 @@ st.set_page_config(page_title="ISIS Archiver Bridge", page_icon="\U0001F50C", la
 
 st.title("ISIS Archiver → optics_gui bridge")
 st.caption(
-    "Runs the real functions built this session: epics_archiver_client.py + epics_live.py. "
-    "This is a local tool, not a hosted page, so it can actually reach the archiver."
+    "Runs the real functions built this session: epics_archiver_client.py + epics_live.py, "
+    "against the real confirmed endpoints (/glob, /getPVStatus, /data). Local tool, not a "
+    "hosted page, so it can actually reach the archiver."
 )
 
 with st.sidebar:
     st.header("Archiver connection")
-    mgmt_base_url = st.text_input(
-        "Management base URL",
-        value="",
-        placeholder="http://<archiver-host>:17665/mgmt/bpl",
-        help="Used by list_available_times (getAllPVs). Get the real host/port from staff.",
-    )
-    retrieval_base_url = st.text_input(
-        "Retrieval base URL",
-        value="",
-        placeholder="http://<archiver-host>:17668/retrieval",
-        help="Used by fetch_value (getData.json). Get the real host/port from staff.",
-    )
+    base_url = st.text_input("Archiver base URL", value=DEFAULT_BASE_URL)
     cycle_time_ms = st.number_input("cycle_time_ms", value=0.0, step=0.5)
-    st.caption("Leave the URLs blank to see the exact error the real functions raise instead of a fake connection.")
 
 
 def make_fetch_value():
     def fetch_value(pv_name, as_of=None):
-        return archiver_fetch_value(pv_name, as_of=as_of, retrieval_base_url=retrieval_base_url)
+        return archiver_fetch_value(pv_name, as_of=as_of, base_url=base_url)
 
     return fetch_value
 
 
 def make_list_available_times():
     def list_available_times(device, family):
-        return archiver_list_available_times(device, family, mgmt_base_url=mgmt_base_url)
+        return archiver_list_available_times(device, family, base_url=base_url)
 
     return list_available_times
+
+
+def make_list_available_times_dwtrim():
+    def list_available_times_dwtrim(signal):
+        return archiver_list_available_times_dwtrim(signal, base_url=base_url)
+
+    return list_available_times_dwtrim
 
 
 st.divider()
@@ -102,6 +99,56 @@ if st.button("Fetch corrector settings", type="primary"):
                 st.json(settings.vd_corrector_currents_A)
         if missing:
             st.warning(f"No data for {len(missing)} corrector(s): {missing}")
+
+st.divider()
+st.subheader("Requested tune (A3)")
+st.caption(
+    "Calls get_requested_tune(...), reading DWTRIM::H_Q / DWTRIM::V_Q directly for this "
+    "cycle time -- confirmed live to be the real tune setpoints (H_Q:AT_TIME:0MS == 4.331 == "
+    "DEFAULT_BASE_QX, V_Q:AT_TIME:0MS == 3.731 == DEFAULT_BASE_QY). No averaging across the "
+    "10 superperiods' trim-quad currents -- each cycle time is read individually."
+)
+
+if st.button("Fetch requested tune", type="primary"):
+    try:
+        row, missing = get_requested_tune(
+            cycle_time_ms=cycle_time_ms,
+            fetch_value=make_fetch_value(),
+            list_available_times_dwtrim=make_list_available_times_dwtrim(),
+        )
+    except Exception as exc:  # noqa: BLE001
+        st.error(f"Fetch failed: {exc}")
+    else:
+        if row is None:
+            st.warning(f"No data at this cycle time for: {missing}")
+        else:
+            col1, col2 = st.columns(2)
+            col1.metric("set_qx (H_Q)", f"{row['set_qx']:.4f}")
+            col2.metric("set_qy (V_Q)", f"{row['set_qy']:.4f}")
+            if missing:
+                st.warning(f"Missing: {missing}")
+
+st.divider()
+st.subheader("Harmonic amplitudes")
+st.caption(
+    "Calls get_harmonic_tunes(...), reading the real DWTRIM::{D7,D8,F8,F9}{SIN,COS} PVs that "
+    "MachineState.harmonic_tunes (DEFAULT_HARMONICS) expects. F9SIN/F9COS are confirmed NOT "
+    "present on this archiver -- they'll show up under 'missing', not a fabricated 0.0."
+)
+
+if st.button("Fetch harmonic amplitudes", type="primary"):
+    try:
+        values, missing = get_harmonic_tunes(
+            cycle_time_ms=cycle_time_ms,
+            fetch_value=make_fetch_value(),
+            list_available_times_dwtrim=make_list_available_times_dwtrim(),
+        )
+    except Exception as exc:  # noqa: BLE001
+        st.error(f"Fetch failed: {exc}")
+    else:
+        st.json(dict(values))
+        if missing:
+            st.warning(f"No data for: {missing}")
 
 st.divider()
 st.subheader("BPM measurements")
