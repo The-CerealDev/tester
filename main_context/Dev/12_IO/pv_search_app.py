@@ -84,6 +84,46 @@ def parse_magnets(pv_names):
     return pd.DataFrame({"superperiod": extracted["superperiod"], "family": family, "cycle_time_ms": extracted["cycle_time_ms"]})
 
 
+@st.cache_data(show_spinner=False)
+def run_search(_df, data_version, search_text, regex_mode, connected_only, exclude_test):
+    """
+    Cached on (data_version, search_text, regex_mode, connected_only,
+    exclude_test) -- reruns triggered by something unrelated to the
+    search itself (e.g. toggling the "show all" checkbox below) reuse
+    this instantly instead of redoing the mask/parse/copy work.
+
+    _df is deliberately excluded from the cache key (the leading
+    underscore is Streamlit's own convention for this) -- hashing a
+    40,000-row DataFrame on every call just to check the cache would
+    itself cost real time. data_version is the cheap stand-in: it only
+    changes when new data is actually loaded.
+    """
+
+    df = _df
+    mask = pd.Series(True, index=df.index)
+    error = None
+    if search_text:
+        try:
+            pattern = search_text if regex_mode else re.escape(search_text)
+            mask &= df["pvName"].str.contains(pattern, case=False, regex=True, na=False)
+        except re.error as exc:
+            error = str(exc)
+            mask &= False
+    if connected_only:
+        mask &= df["connectionState"]
+    if exclude_test:
+        mask &= ~df["pvName"].str.contains("_TEST", case=False, na=False)
+
+    filtered = df.loc[mask].copy()
+    filtered = pd.concat([filtered, parse_magnets(filtered["pvName"])], axis=1)
+    return filtered, error
+
+
+@st.cache_data(show_spinner=False)
+def to_csv_bytes(df):
+    return df.to_csv(index=False).encode("utf-8")
+
+
 def load_cache():
     if CACHE_PATH.exists():
         try:
@@ -104,6 +144,8 @@ st.set_page_config(page_title="PV Search", page_icon="\U0001F50D", layout="wide"
 
 if "pv_records" not in st.session_state:
     st.session_state.pv_records = load_cache() or []
+if "data_version" not in st.session_state:
+    st.session_state.data_version = 0
 if "search_text" not in st.session_state:
     st.session_state.search_text = ""
 if "regex_mode" not in st.session_state:
@@ -124,15 +166,18 @@ with st.expander("Load / replace PV list", expanded=not st.session_state.pv_reco
             st.error(f"Couldn't parse that as a PV list: {exc}")
         else:
             st.session_state.pv_records = records
+            st.session_state.data_version += 1
             save_cache(records)
             st.success(f"Loaded {len(records)} PVs.")
             st.rerun()
     if col_b.button("Load example rows"):
         st.session_state.pv_records = EXAMPLE_ROWS
+        st.session_state.data_version += 1
         save_cache(EXAMPLE_ROWS)
         st.rerun()
     if col_c.button("Clear all data"):
         st.session_state.pv_records = []
+        st.session_state.data_version += 1
         if CACHE_PATH.exists():
             CACHE_PATH.unlink()
         st.rerun()
@@ -146,13 +191,10 @@ if df.empty:
 
 st.divider()
 
-search_col, regex_col = st.columns([5, 1])
-search_text = search_col.text_input(
-    "Search PV names",
-    value=st.session_state.search_text,
-    placeholder=r"try HD1:CURRENT or a regex like R\d(HD1|VD1|QT[DF])",
-)
-regex_mode = regex_col.checkbox("Regex", value=st.session_state.regex_mode)
+if "connected_only" not in st.session_state:
+    st.session_state.connected_only = False
+if "exclude_test" not in st.session_state:
+    st.session_state.exclude_test = False
 
 st.write("**Quick filters**")
 preset_cols = st.columns(len(PRESETS))
@@ -162,25 +204,37 @@ for col, (label, pattern) in zip(preset_cols, PRESETS.items()):
         st.session_state.regex_mode = bool(pattern)
         st.rerun()
 
-filter_col1, filter_col2 = st.columns(2)
-connected_only = filter_col1.checkbox("Connected only")
-exclude_test = filter_col2.checkbox("Exclude _TEST")
+# Everything inside this form is client-side only until Search is clicked
+# (or Enter is pressed) -- typing in the box below no longer touches the
+# backend at all, which is what was causing the per-keystroke lag at
+# 40,000 PVs even after the search itself got fast.
+with st.form("search_form"):
+    search_col, regex_col = st.columns([5, 1])
+    search_text_input = search_col.text_input(
+        "Search PV names",
+        value=st.session_state.search_text,
+        placeholder=r"try HD1:CURRENT or a regex like R\d(HD1|VD1|QT[DF])",
+    )
+    regex_mode_input = regex_col.checkbox("Regex", value=st.session_state.regex_mode)
+    filter_col1, filter_col2 = st.columns(2)
+    connected_only_input = filter_col1.checkbox("Connected only", value=st.session_state.connected_only)
+    exclude_test_input = filter_col2.checkbox("Exclude _TEST", value=st.session_state.exclude_test)
+    submitted = st.form_submit_button("Search", type="primary")
 
-mask = pd.Series(True, index=df.index)
-if search_text:
-    try:
-        pattern = search_text if regex_mode else re.escape(search_text)
-        mask &= df["pvName"].str.contains(pattern, case=False, regex=True, na=False)
-    except re.error as exc:
-        st.error(f"Invalid regex: {exc}")
-        mask &= False
-if connected_only:
-    mask &= df["connectionState"]
-if exclude_test:
-    mask &= ~df["pvName"].str.contains("_TEST", case=False, na=False)
+if submitted:
+    st.session_state.search_text = search_text_input
+    st.session_state.regex_mode = regex_mode_input
+    st.session_state.connected_only = connected_only_input
+    st.session_state.exclude_test = exclude_test_input
 
-filtered = df.loc[mask].copy()
-filtered = pd.concat([filtered, parse_magnets(filtered["pvName"])], axis=1)
+search_text = st.session_state.search_text
+regex_mode = st.session_state.regex_mode
+connected_only = st.session_state.connected_only
+exclude_test = st.session_state.exclude_test
+
+filtered, search_error = run_search(df, st.session_state.data_version, search_text, regex_mode, connected_only, exclude_test)
+if search_error:
+    st.error(f"Invalid regex: {search_error}")
 
 st.caption(f"**{len(filtered)}** / {len(df)} PVs shown")
 
@@ -198,7 +252,7 @@ st.dataframe(display_df, use_container_width=True, hide_index=True)
 if not filtered.empty:
     st.download_button(
         "Download all filtered results as CSV",
-        data=filtered.to_csv(index=False).encode("utf-8"),
+        data=to_csv_bytes(filtered),
         file_name="pv_search_results.csv",
         mime="text/csv",
     )
