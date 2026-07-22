@@ -168,6 +168,26 @@ def get_corrector_settings(
 # PVs found in the archiver dump sit on the same test IOC as the correctors
 # and look like distortion setpoints, not measurements -- don't wire
 # pv_name_for_bpm to those until staff confirm the real readback PVs.
+#
+# FOR FUTURE REFERENCE (not wired in -- deprioritized, BPM isn't heavily
+# used in the control system yet; revisit when that changes): a live
+# /glob search found a much stronger real-BPM candidate --
+# RNG:DIAG:POS:R{superperiod}{HM|VM}{n}:{POSITION|IN/OUT|UP/DOWN}, 38
+# devices, naming matches the lattice's real BPM labels (sp0_r0hm1 ->
+# R0HM1) far better than CHANGE:ORBIT_*, and includes the raw-electrode-
+# pair-plus-derived-position structure real BPM hardware has. Confirmed
+# live via /getPVStatus that R0HM1:POSITION is real and "Being archived."
+# Confirmed live via /data that it holds a genuinely varying value (not a
+# flat setpoint like every other test-IOC PV this session) -- a 10-year
+# window returned 12,762,602 samples, value moving from 0.0 to a nonzero
+# reading. The catch: /data against this PV is very slow regardless of
+# window size (a 5-minute window failed at 45s; only a 10-year window
+# with a 240s timeout succeeded) -- whoever picks this back up needs to
+# either confirm that's an intrinsic property of this densely-sampled PV
+# class (needs a long fetch_value timeout, not the ~20s default) or retest
+# a moderate window in isolation, since this session had already put
+# heavy load on the archiver (real 429s/500s seen elsewhere) by the time
+# this was tried, which may have been a confounding factor.
 # ----------------------------------------------------------------------
 
 from ..orbit_correction import bpm_measurements_from_twiss  # noqa: E402
