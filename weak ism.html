@@ -1,0 +1,1015 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ISIS RCS — Live Facility & Beamline Model</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Consolas', 'Segoe UI', Monaco, monospace;
+            background-color: #070a12;
+            color: #94a3b8;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            user-select: none;
+        }
+
+        /* Top Header Navigation Bar */
+        header {
+            height: 48px;
+            background: #0f172a;
+            border-bottom: 1px solid #1e293b;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px;
+            z-index: 20;
+        }
+
+        .title-group {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .app-title {
+            color: #38bdf8;
+            font-size: 0.95rem;
+            font-weight: bold;
+            letter-spacing: 0.5px;
+        }
+
+        .status-pill {
+            background: rgba(34, 197, 94, 0.15);
+            color: #4ade80;
+            border: 1px solid rgba(34, 197, 94, 0.3);
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-weight: 600;
+        }
+
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 0.8rem;
+        }
+
+        .btn-hdr {
+            background: #1e293b;
+            color: #cbd5e1;
+            border: 1px solid #334155;
+            padding: 5px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-family: inherit;
+            transition: all 0.15s ease;
+        }
+
+        .btn-hdr:hover {
+            background: #0284c7;
+            color: #fff;
+            border-color: #38bdf8;
+        }
+
+        /* Main Workspace Layout */
+        .workspace {
+            display: flex;
+            flex: 1;
+            height: calc(100vh - 48px);
+            position: relative;
+        }
+
+        /* Left Controls Panel */
+        .sidebar-left {
+            width: 320px;
+            background: rgba(11, 15, 25, 0.95);
+            border-right: 1px solid #1e293b;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            z-index: 10;
+            padding: 12px;
+            gap: 16px;
+        }
+
+        .sidebar-left::-webkit-scrollbar, .sidebar-right::-webkit-scrollbar {
+            width: 5px;
+        }
+        .sidebar-left::-webkit-scrollbar-thumb, .sidebar-right::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 3px;
+        }
+
+        .panel-section {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .section-header {
+            color: #38bdf8;
+            font-size: 0.8rem;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .section-header::before {
+            content: '▼';
+            font-size: 0.6rem;
+            color: #38bdf8;
+        }
+
+        .control-block {
+            background: #0f172a;
+            border: 1px solid #1e293b;
+            border-radius: 6px;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .control-label {
+            font-size: 0.75rem;
+            color: #38bdf8;
+        }
+
+        .control-subtext {
+            font-size: 0.68rem;
+            color: #64748b;
+        }
+
+        .slider-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        input[type="range"] {
+            flex: 1;
+            accent-color: #38bdf8;
+            cursor: pointer;
+        }
+
+        .value-readout {
+            font-size: 0.75rem;
+            color: #e2e8f0;
+            min-width: 55px;
+            text-align: right;
+            font-weight: bold;
+        }
+
+        select {
+            background: #1e293b;
+            border: 1px solid #334155;
+            color: #e2e8f0;
+            padding: 6px;
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 0.75rem;
+            width: 100%;
+        }
+
+        /* Viewport Frame */
+        #viewport-container {
+            flex: 1;
+            position: relative;
+            background: #050811;
+        }
+
+        #three-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* Right Inspector / Readouts Panel */
+        .sidebar-right {
+            width: 310px;
+            background: rgba(11, 15, 25, 0.95);
+            border-left: 1px solid #1e293b;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            z-index: 10;
+            padding: 12px;
+            gap: 16px;
+        }
+
+        .readout-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.75rem;
+        }
+
+        .readout-table td {
+            padding: 5px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .readout-table td.label {
+            color: #94a3b8;
+        }
+
+        .readout-table td.val {
+            color: #38bdf8;
+            text-align: right;
+            font-weight: bold;
+        }
+
+        .tune-diagram {
+            width: 100%;
+            height: 160px;
+            background: #0f172a;
+            border: 1px solid #1e293b;
+            border-radius: 6px;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        canvas#tuneCanvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        .view-btn-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+        }
+
+        .hint-overlay {
+            position: absolute;
+            bottom: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(15, 23, 42, 0.85);
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            border-radius: 20px;
+            padding: 6px 16px;
+            font-size: 0.72rem;
+            color: #cbd5e1;
+            pointer-events: none;
+            backdrop-filter: blur(8px);
+        }
+    </style>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+
+    <header>
+        <div class="title-group">
+            <span class="app-title">ISIS RCS — Live Facility & Synchrotron Model</span>
+            <span class="status-pill" id="beamStatus">BEAM ON (100 µA)</span>
+        </div>
+        <div class="header-controls">
+            <button class="btn-hdr" onclick="togglePause()" id="pauseBtn">Pause</button>
+            <span>Speed:</span>
+            <input type="range" id="globalSpeed" min="0.1" max="3" step="0.1" value="1.0" style="width: 80px;" oninput="onSpeedChange(this.value)">
+            <button class="btn-hdr" onclick="setView('top')">Top View</button>
+            <button class="btn-hdr" onclick="setView('iso')">Isometric</button>
+            <button class="btn-hdr" onclick="setView('ring')">Synchrotron</button>
+            <button class="btn-hdr" onclick="setView('ts1')">TS1</button>
+            <button class="btn-hdr" onclick="setView('ts2')">TS2</button>
+        </div>
+    </header>
+
+    <div class="workspace">
+
+        <div class="sidebar-left">
+
+            <div class="panel-section">
+                <div class="section-header">Cycle Time</div>
+                <div class="control-block">
+                    <span class="control-label">cycle_time_ms</span>
+                    <span class="control-subtext">Time through 10 ms acceleration ramp</span>
+                    <div class="slider-row">
+                        <input type="range" id="cycleSlider" min="0" max="10" step="0.01" value="5.0" oninput="updateCycle(this.value)">
+                        <span class="value-readout" id="cycleVal">5.000 ms</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <div class="section-header">Tune Request</div>
+                <div class="control-block">
+                    <span class="control-label">tune_method</span>
+                    <span class="control-subtext">Trim quad calculation algorithm</span>
+                    <select id="tuneMethod" onchange="updatePhysics()">
+                        <option value="di_wright">di_wright</option>
+                        <option value="madx_opt">madx_opt</option>
+                        <option value="manual">manual_override</option>
+                    </select>
+                </div>
+                <div class="control-block">
+                    <span class="control-label">requested_qx</span>
+                    <span class="control-subtext">Horizontal tune target (Qx)</span>
+                    <div class="slider-row">
+                        <input type="range" id="qxSlider" min="4.0" max="4.6" step="0.001" value="4.331" oninput="updatePhysics()">
+                        <span class="value-readout" id="qxVal">4.331</span>
+                    </div>
+                </div>
+                <div class="control-block">
+                    <span class="control-label">requested_qy</span>
+                    <span class="control-subtext">Vertical tune target (Qy)</span>
+                    <div class="slider-row">
+                        <input type="range" id="qySlider" min="3.2" max="4.0" step="0.001" value="3.731" oninput="updatePhysics()">
+                        <span class="value-readout" id="qyVal">3.731</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <div class="section-header">Corrector Dipoles & Trim Quads</div>
+                <div class="control-block">
+                    <span class="control-label">r0hd1_kick</span>
+                    <span class="control-subtext">H corrector current (Superperiod 0)</span>
+                    <div class="slider-row">
+                        <input type="range" id="kickSlider" min="-10" max="10" step="0.1" value="0.0" oninput="updatePhysics()">
+                        <span class="value-readout" id="kickVal">0.000 A</span>
+                    </div>
+                </div>
+                <div class="control-block">
+                    <span class="control-label">beam_intensity</span>
+                    <span class="control-subtext">Target proton pulse intensity</span>
+                    <div class="slider-row">
+                        <input type="range" id="intensitySlider" min="10" max="250" step="5" value="100" oninput="updateIntensity(this.value)">
+                        <span class="value-readout" id="intensityVal">100 µA</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <div class="section-header">Quick Camera Presets</div>
+                <div class="view-btn-grid">
+                    <button class="btn-hdr" onclick="setView('top')">Overview Top</button>
+                    <button class="btn-hdr" onclick="setView('iso')">Isometric 3D</button>
+                    <button class="btn-hdr" onclick="setView('linac')">70 MeV Linac</button>
+                    <button class="btn-hdr" onclick="setView('ring')">Synchrotron Ring</button>
+                    <button class="btn-hdr" onclick="setView('ts1')">Target Stn 1</button>
+                    <button class="btn-hdr" onclick="setView('ts2')">Target Stn 2</button>
+                </div>
+            </div>
+
+        </div>
+
+        <div id="viewport-container">
+            <canvas id="three-canvas"></canvas>
+            <div class="hint-overlay">
+                🖱️ Left-Click object to select magnet/station | Right-Click + Drag to Pan | Scroll to Zoom
+            </div>
+        </div>
+
+        <div class="sidebar-right">
+
+            <div class="panel-section">
+                <div class="section-header" id="inspectorHeader">Live Readouts</div>
+                <div class="control-block">
+                    <table class="readout-table">
+                        <tr>
+                            <td class="label">Target Component:</td>
+                            <td class="val" id="dispCompName" style="color:#f59e0b;">Synchrotron Ring (Global)</td>
+                        </tr>
+                        <tr>
+                            <td class="label">Component Type:</td>
+                            <td class="val" id="dispCompType">RCS Main Lattice</td>
+                        </tr>
+                        <tr>
+                            <td class="label">Status:</td>
+                            <td class="val" id="dispCompStatus" style="color:#4ade80;">ACTIVE / POWERED</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <div class="section-header">Physics Metrics</div>
+                <div class="control-block">
+                    <table class="readout-table">
+                        <tr>
+                            <td class="label">Qx (simulated):</td>
+                            <td class="val" id="readQx">4.3360</td>
+                        </tr>
+                        <tr>
+                            <td class="label">Qy (simulated):</td>
+                            <td class="val" id="readQy">3.1697</td>
+                        </tr>
+                        <tr>
+                            <td class="label">Kinetic Energy:</td>
+                            <td class="val" id="readEnergy">373.1 MeV</td>
+                        </tr>
+                        <tr>
+                            <td class="label">Brho (Rigidity):</td>
+                            <td class="val" id="readBrho">3.0562 T·m</td>
+                        </tr>
+                        <tr>
+                            <td class="label">Mag. Field (B):</td>
+                            <td class="val" id="readBField">0.6850 T</td>
+                        </tr>
+                        <tr>
+                            <td class="label">Coil Current (I):</td>
+                            <td class="val" id="readCurrent">842.0 A</td>
+                        </tr>
+                        <tr>
+                            <td class="label">Max Orbit Distortion:</td>
+                            <td class="val" id="readDistortion">0.00 mm</td>
+                        </tr>
+                        <tr>
+                            <td class="label">Revolution Time:</td>
+                            <td class="val" id="readRevTime">0.780 µs/turn</td>
+                        </tr>
+                        <tr>
+                            <td class="label">Simulated Laps:</td>
+                            <td class="val" id="readLaps">6410 laps</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            <div class="panel-section" id="magnetOverridePanel">
+                <div class="section-header">Selected Magnet Settings</div>
+                <div class="control-block">
+                    <span class="control-label">Field Override (Tesla)</span>
+                    <div class="slider-row">
+                        <input type="range" id="magFieldSlider" min="0" max="2.0" step="0.01" value="0.70" oninput="onMagnetFieldAdjust(this.value)">
+                        <span class="value-readout" id="magFieldVal">0.70 T</span>
+                    </div>
+                </div>
+                <div class="control-block">
+                    <button class="btn-hdr" style="width:100%;" onclick="toggleSelectedPower()">Toggle Component Power</button>
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <div class="section-header">Tune Diagram (Qx vs Qy)</div>
+                <div class="tune-diagram">
+                    <canvas id="tuneCanvas" width="280" height="160"></canvas>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <script>
+        // --- 1. Scene & Renderer Setup ---
+        const canvas = document.getElementById('three-canvas');
+        const container = document.getElementById('viewport-container');
+
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x050811);
+
+        const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+        const controls = new THREE.OrbitControls(camera, canvas);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+
+        const dirLight1 = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight1.position.set(60, 100, 40);
+        scene.add(dirLight1);
+
+        const dirLight2 = new THREE.DirectionalLight(0x38bdf8, 0.4);
+        dirLight2.position.set(-60, -20, -40);
+        scene.add(dirLight2);
+
+        // Ground Grid
+        const grid = new THREE.GridHelper(260, 65, 0x1e293b, 0x0f172a);
+        grid.position.y = -0.1;
+        scene.add(grid);
+
+        // --- 2. Interactive Object Registry & Materials ---
+        const selectables = [];
+        let selectedMesh = null;
+        let isPaused = false;
+        let speedMultiplier = 1.0;
+
+        const colors = {
+            synchrotronPipe: 0x0284c7,
+            dipole: 0xf59e0b,
+            quadrupole: 0x10b981,
+            corrector: 0xec4899,
+            beamline: 0x38bdf8,
+            linac: 0xef4444,
+            targetStation: 0x334155,
+            instrument: 0xa855f7
+        };
+
+        function registerSelectable(mesh, name, type, physics = {}) {
+            mesh.userData = {
+                name: name,
+                type: type,
+                active: true,
+                bField: physics.bField || 0.70,
+                current: physics.current || 840,
+                energy: physics.energy || "800.0 MeV",
+                originalEmissive: mesh.material.emissive ? mesh.material.emissive.getHex() : 0x000000
+            };
+            selectables.push(mesh);
+        }
+
+        // --- 3. Facility Geometry Construction ---
+
+        // A. 70 MeV Linac
+        const linacGeo = new THREE.BoxGeometry(40, 1.4, 1.4);
+        const linacMat = new THREE.MeshPhongMaterial({ color: colors.linac, emissive: 0x300000 });
+        const linac = new THREE.Mesh(linacGeo, linacMat);
+        linac.position.set(18, 0.8, -42);
+        linac.rotation.y = -0.15;
+        scene.add(linac);
+        registerSelectable(linac, "70 MeV H⁻ Linear Accelerator", "Linear Injector", { energy: "70.0 MeV", bField: 0.15, current: 220 });
+
+        // B. 800 MeV Synchrotron Ring
+        const ringRadius = 22;
+        const ringCenter = new THREE.Vector3(38, 0.8, -12);
+        
+        const ringGeo = new THREE.TorusGeometry(ringRadius, 0.45, 16, 80);
+        const ringMat = new THREE.MeshPhongMaterial({ color: colors.synchrotronPipe, transparent: true, opacity: 0.75 });
+        const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+        ringMesh.rotation.x = Math.PI / 2;
+        ringMesh.position.copy(ringCenter);
+        scene.add(ringMesh);
+
+        // Center Structure Octagon
+        const octGeo = new THREE.CylinderGeometry(12, 12, 0.8, 8);
+        const octMat = new THREE.MeshPhongMaterial({ color: 0x0f172a, flatShading: true });
+        const octMesh = new THREE.Mesh(octGeo, octMat);
+        octMesh.position.copy(ringCenter);
+        scene.add(octMesh);
+
+        // Synchrotron Ring Waveform Visualization Overlay (Like Image 2)
+        const waveCount = 120;
+        const waveGeo = new THREE.BufferGeometry();
+        const wavePos = new Float32Array(waveCount * 3);
+        waveGeo.setAttribute('position', new THREE.BufferAttribute(wavePos, 3));
+        const waveMat = new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.6 });
+        const waveLine = new THREE.LineLoop(waveGeo, waveMat);
+        scene.add(waveLine);
+
+        // C. Synchrotron Lattice Magnets (10 Superperiods)
+        const totalSuperperiods = 10;
+        for (let i = 0; i < totalSuperperiods; i++) {
+            const baseAngle = (i / totalSuperperiods) * Math.PI * 2;
+
+            // Dipole Magnet (Main Bending Magnet - Amber)
+            const dAngle = baseAngle;
+            const dx = ringCenter.x + Math.cos(dAngle) * ringRadius;
+            const dz = ringCenter.z + Math.sin(dAngle) * ringRadius;
+
+            const dipoleMesh = new THREE.Mesh(
+                new THREE.BoxGeometry(2.5, 1.8, 1.8),
+                new THREE.MeshPhongMaterial({ color: colors.dipole })
+            );
+            dipoleMesh.position.set(dx, 0.8, dz);
+            dipoleMesh.rotation.y = -dAngle + Math.PI / 2;
+            scene.add(dipoleMesh);
+            registerSelectable(dipoleMesh, `Main Bending Dipole SP${i}`, "Bending Magnet", { bField: 0.70, current: 850 });
+
+            // Quadrupole Magnet (Green)
+            const qAngle = baseAngle + (Math.PI / (totalSuperperiods * 2));
+            const qx = ringCenter.x + Math.cos(qAngle) * ringRadius;
+            const qz = ringCenter.z + Math.sin(qAngle) * ringRadius;
+
+            const quadMesh = new THREE.Mesh(
+                new THREE.CylinderGeometry(1.0, 1.0, 1.6, 8),
+                new THREE.MeshPhongMaterial({ color: colors.quadrupole })
+            );
+            quadMesh.position.set(qx, 0.8, qz);
+            scene.add(quadMesh);
+            registerSelectable(quadMesh, `Trim Quadrupole SP${i}`, "Focusing Quadrupole", { bField: 1.25, current: 340 });
+
+            // Corrector Dipole (Pink)
+            const cAngle = baseAngle + (Math.PI / totalSuperperiods) * 0.8;
+            const cx = ringCenter.x + Math.cos(cAngle) * ringRadius;
+            const cz = ringCenter.z + Math.sin(cAngle) * ringRadius;
+
+            const corrMesh = new THREE.Mesh(
+                new THREE.BoxGeometry(1.2, 1.2, 1.2),
+                new THREE.MeshPhongMaterial({ color: colors.corrector })
+            );
+            corrMesh.position.set(cx, 0.8, cz);
+            scene.add(corrMesh);
+            registerSelectable(corrMesh, `Corrector Dipole r0hd1_SP${i}`, "H/V Corrector", { bField: 0.08, current: 45 });
+        }
+
+        // D. Target Station 1 (TS1) & Beams
+        const ts1Pos = new THREE.Vector3(-35, 0.8, -12);
+        const ts1Mesh = new THREE.Mesh(
+            new THREE.CylinderGeometry(6, 6, 2.8, 32),
+            new THREE.MeshPhongMaterial({ color: colors.targetStation })
+        );
+        ts1Mesh.position.copy(ts1Pos);
+        scene.add(ts1Mesh);
+        registerSelectable(ts1Mesh, "Target Station 1 (TS1)", "Spallation Target (50 Hz)", { energy: "800 MeV", bField: 0, current: 0 });
+
+        // E. Target Station 2 (TS2) & Beams
+        const ts2Pos = new THREE.Vector3(12, 0.8, 55);
+        const ts2Mesh = new THREE.Mesh(
+            new THREE.CylinderGeometry(5.5, 5.5, 2.8, 32),
+            new THREE.MeshPhongMaterial({ color: colors.targetStation })
+        );
+        ts2Mesh.position.copy(ts2Pos);
+        scene.add(ts2Mesh);
+        registerSelectable(ts2Mesh, "Target Station 2 (TS2)", "Cold Neutron Target (10 Hz)", { energy: "800 MeV", bField: 0, current: 0 });
+
+        // Extracted Beam Pipes
+        function createGlassBeamline(curvePath) {
+            const tubeGeo = new THREE.TubeGeometry(curvePath, 40, 0.45, 8, false);
+            const tubeMat = new THREE.MeshPhongMaterial({ color: colors.beamline, transparent: true, opacity: 0.35 });
+            scene.add(new THREE.Mesh(tubeGeo, tubeMat));
+        }
+
+        const pathTS1 = new THREE.LineCurve3(new THREE.Vector3(16, 0.8, -12), ts1Pos);
+        createGlassBeamline(pathTS1);
+
+        const pathTS2 = new THREE.CatmullRomCurve3([
+            new THREE.Vector3(32, 0.8, 8),
+            new THREE.Vector3(26, 0.8, 28),
+            ts2Pos
+        ]);
+        createGlassBeamline(pathTS2);
+
+        // F. Experimental Instruments (Radial Layouts)
+        function createInstruments(targetPos, count, radius) {
+            for (let i = 0; i < count; i++) {
+                const angle = (i / count) * Math.PI * 2;
+                const dist = radius + 3 + Math.random() * 6;
+                const x = targetPos.x + Math.cos(angle) * dist;
+                const z = targetPos.z + Math.sin(angle) * dist;
+
+                // Beam guide line
+                const guideGeo = new THREE.TubeGeometry(new THREE.LineCurve3(targetPos, new THREE.Vector3(x, 0.5, z)), 5, 0.1, 6, false);
+                scene.add(new THREE.Mesh(guideGeo, new THREE.MeshBasicMaterial({ color: 0x334155 })));
+
+                const instMesh = new THREE.Mesh(
+                    new THREE.BoxGeometry(1.8, 1.2, 1.8),
+                    new THREE.MeshPhongMaterial({ color: colors.instrument })
+                );
+                instMesh.position.set(x, 0.8, z);
+                instMesh.rotation.y = -angle;
+                scene.add(instMesh);
+                registerSelectable(instMesh, `Neutron Spectrometer INST-${i+1}`, "Experimental Beamline");
+            }
+        }
+        createInstruments(ts1Pos, 12, 7);
+        createInstruments(ts2Pos, 9, 6);
+
+        // --- 4. ANIMATED PARTICLE BEAM SYSTEM ---
+
+        function createParticleSystem(count, size, color) {
+            const geo = new THREE.BufferGeometry();
+            const pos = new Float32Array(count * 3);
+            geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+            const mat = new THREE.PointsMaterial({
+                color: color,
+                size: size,
+                transparent: true,
+                opacity: 0.9,
+                blending: THREE.AdditiveBlending
+            });
+            return { mesh: new THREE.Points(geo, mat), progress: new Float32Array(count).map(() => Math.random()), count: count };
+        }
+
+        const particleGroup = new THREE.Group();
+        scene.add(particleGroup);
+
+        const linacParticles = createParticleSystem(30, 0.65, 0xff0055);
+        particleGroup.add(linacParticles.mesh);
+
+        const ringParticles = createParticleSystem(100, 0.75, 0x38bdf8);
+        particleGroup.add(ringParticles.mesh);
+
+        const ts1Particles = createParticleSystem(40, 0.55, 0x00ffcc);
+        particleGroup.add(ts1Particles.mesh);
+
+        const ts2Particles = createParticleSystem(40, 0.55, 0x00ffcc);
+        particleGroup.add(ts2Particles.mesh);
+
+        function animateBeamParticles(delta) {
+            if (isPaused) return;
+            const spd = speedMultiplier;
+
+            // Linac
+            const lStart = new THREE.Vector3(37, 0.8, -44.8);
+            const lEnd = new THREE.Vector3(-1, 0.8, -39.2);
+            const lArr = linacParticles.mesh.geometry.attributes.position.array;
+            for (let i = 0; i < linacParticles.count; i++) {
+                linacParticles.progress[i] += delta * 0.9 * spd;
+                if (linacParticles.progress[i] > 1) linacParticles.progress[i] = 0;
+                const p = new THREE.Vector3().lerpVectors(lStart, lEnd, linacParticles.progress[i]);
+                lArr[i * 3] = p.x + (Math.random() - 0.5) * 0.2;
+                lArr[i * 3 + 1] = p.y + (Math.random() - 0.5) * 0.2;
+                lArr[i * 3 + 2] = p.z + (Math.random() - 0.5) * 0.2;
+            }
+            linacParticles.mesh.geometry.attributes.position.needsUpdate = true;
+
+            // Ring
+            const rArr = ringParticles.mesh.geometry.attributes.position.array;
+            for (let i = 0; i < ringParticles.count; i++) {
+                ringParticles.progress[i] += delta * 3.5 * spd;
+                if (ringParticles.progress[i] > Math.PI * 2) ringParticles.progress[i] -= Math.PI * 2;
+                const a = ringParticles.progress[i];
+                rArr[i * 3] = ringCenter.x + Math.cos(a) * ringRadius + (Math.random() - 0.5) * 0.3;
+                rArr[i * 3 + 1] = ringCenter.y + (Math.random() - 0.5) * 0.3;
+                rArr[i * 3 + 2] = ringCenter.z + Math.sin(a) * ringRadius + (Math.random() - 0.5) * 0.3;
+            }
+            ringParticles.mesh.geometry.attributes.position.needsUpdate = true;
+
+            // TS1
+            const t1Arr = ts1Particles.mesh.geometry.attributes.position.array;
+            for (let i = 0; i < ts1Particles.count; i++) {
+                ts1Particles.progress[i] += delta * 1.4 * spd;
+                if (ts1Particles.progress[i] > 1) ts1Particles.progress[i] = 0;
+                const p = pathTS1.getPoint(ts1Particles.progress[i]);
+                t1Arr[i * 3] = p.x + (Math.random() - 0.5) * 0.2;
+                t1Arr[i * 3 + 1] = p.y + (Math.random() - 0.5) * 0.2;
+                t1Arr[i * 3 + 2] = p.z + (Math.random() - 0.5) * 0.2;
+            }
+            ts1Particles.mesh.geometry.attributes.position.needsUpdate = true;
+
+            // TS2
+            const t2Arr = ts2Particles.mesh.geometry.attributes.position.array;
+            for (let i = 0; i < ts2Particles.count; i++) {
+                ts2Particles.progress[i] += delta * 1.0 * spd;
+                if (ts2Particles.progress[i] > 1) ts2Particles.progress[i] = 0;
+                const p = pathTS2.getPoint(ts2Particles.progress[i]);
+                t2Arr[i * 3] = p.x + (Math.random() - 0.5) * 0.2;
+                t2Arr[i * 3 + 1] = p.y + (Math.random() - 0.5) * 0.2;
+                t2Arr[i * 3 + 2] = p.z + (Math.random() - 0.5) * 0.2;
+            }
+            ts2Particles.mesh.geometry.attributes.position.needsUpdate = true;
+
+            // Update Ring Waveform geometry overlay
+            const wArr = waveLine.geometry.attributes.position.array;
+            const cycleMs = parseFloat(document.getElementById('cycleSlider').value);
+            for (let i = 0; i < waveCount; i++) {
+                const a = (i / waveCount) * Math.PI * 2;
+                const waveAmp = Math.sin(a * 8 + performance.now() * 0.005) * (0.8 + cycleMs * 0.1);
+                wArr[i * 3] = ringCenter.x + Math.cos(a) * (ringRadius + waveAmp);
+                wArr[i * 3 + 1] = ringCenter.y + 0.5 + Math.cos(a * 4) * 0.4;
+                wArr[i * 3 + 2] = ringCenter.z + Math.sin(a) * (ringRadius + waveAmp);
+            }
+            waveLine.geometry.attributes.position.needsUpdate = true;
+        }
+
+        // --- 5. INTERACTION & SELECTION ---
+
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+
+        window.addEventListener('pointerdown', (event) => {
+            if (event.target.closest('.sidebar-left') || event.target.closest('.sidebar-right') || event.target.closest('header')) return;
+
+            const rect = renderer.domElement.getBoundingClientRect();
+            mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(selectables);
+
+            if (intersects.length > 0) {
+                selectMesh(intersects[0].object);
+            } else {
+                deselectMesh();
+            }
+        });
+
+        function selectMesh(mesh) {
+            deselectMesh();
+            selectedMesh = mesh;
+            if (selectedMesh.material.emissive) {
+                selectedMesh.material.emissive.setHex(0x38bdf8);
+            }
+
+            document.getElementById('dispCompName').innerText = mesh.userData.name;
+            document.getElementById('dispCompType').innerText = mesh.userData.type;
+            document.getElementById('dispCompStatus').innerText = mesh.userData.active ? "ACTIVE / POWERED" : "OFFLINE / TRIP";
+            document.getElementById('dispCompStatus').style.color = mesh.userData.active ? "#4ade80" : "#ef4444";
+
+            document.getElementById('magFieldSlider').value = mesh.userData.bField;
+            document.getElementById('magFieldVal').innerText = mesh.userData.bField + " T";
+
+            updatePhysics();
+        }
+
+        function deselectMesh() {
+            if (selectedMesh) {
+                if (selectedMesh.material.emissive) {
+                    selectedMesh.material.emissive.setHex(selectedMesh.userData.originalEmissive);
+                }
+                selectedMesh = null;
+            }
+            document.getElementById('dispCompName').innerText = "Synchrotron Ring (Global)";
+            document.getElementById('dispCompType').innerText = "RCS Main Lattice";
+            document.getElementById('dispCompStatus').innerText = "ACTIVE / POWERED";
+            document.getElementById('dispCompStatus').style.color = "#4ade80";
+            updatePhysics();
+        }
+
+        // --- 6. PHYSICS READOUT & GUI UPDATE ENGINE ---
+
+        let currentLaps = 6410;
+
+        function updateCycle(val) {
+            document.getElementById('cycleVal').innerText = parseFloat(val).toFixed(3) + " ms";
+            updatePhysics();
+        }
+
+        function updateIntensity(val) {
+            document.getElementById('intensityVal').innerText = val + " µA";
+            document.getElementById('beamStatus').innerText = `BEAM ON (${val} µA)`;
+        }
+
+        function onSpeedChange(val) {
+            speedMultiplier = parseFloat(val);
+        }
+
+        function togglePause() {
+            isPaused = !isPaused;
+            document.getElementById('pauseBtn').innerText = isPaused ? "Resume" : "Pause";
+        }
+
+        function onMagnetFieldAdjust(val) {
+            document.getElementById('magFieldVal').innerText = parseFloat(val).toFixed(2) + " T";
+            if (selectedMesh) {
+                selectedMesh.userData.bField = parseFloat(val);
+                updatePhysics();
+            }
+        }
+
+        function toggleSelectedPower() {
+            if (!selectedMesh) return;
+            selectedMesh.userData.active = !selectedMesh.userData.active;
+            selectMesh(selectedMesh);
+        }
+
+        function updatePhysics() {
+            const cycleMs = parseFloat(document.getElementById('cycleSlider').value);
+            const reqQx = parseFloat(document.getElementById('qxSlider').value);
+            const reqQy = parseFloat(document.getElementById('qySlider').value);
+            const kick = parseFloat(document.getElementById('kickSlider').value);
+
+            document.getElementById('qxVal').innerText = reqQx.toFixed(3);
+            document.getElementById('qyVal').innerText = reqQy.toFixed(3);
+            document.getElementById('kickVal').innerText = kick.toFixed(3) + " A";
+
+            // Physics calculation based on cycle ramp (70 MeV at 0ms -> 800 MeV at 10ms)
+            const kineticEnergy = 70 + (cycleMs / 10.0) * (800 - 70);
+            const brho = 1.25 + (kineticEnergy / 800.0) * 1.8;
+            const simQx = reqQx + (Math.sin(cycleMs) * 0.005) + (kick * 0.002);
+            const simQy = reqQy + (Math.cos(cycleMs) * 0.004);
+            const bField = selectedMesh ? selectedMesh.userData.bField : (0.15 + (kineticEnergy / 800.0) * 0.55);
+            const current = selectedMesh ? (bField * 1200).toFixed(1) : (180 + (kineticEnergy / 800.0) * 670).toFixed(1);
+            const revTime = (0.65 + (1.0 - kineticEnergy / 800.0) * 0.3).toFixed(3);
+
+            document.getElementById('readQx').innerText = simQx.toFixed(4);
+            document.getElementById('readQy').innerText = simQy.toFixed(4);
+            document.getElementById('readEnergy').innerText = kineticEnergy.toFixed(1) + " MeV";
+            document.getElementById('readBrho').innerText = brho.toFixed(4) + " T·m";
+            document.getElementById('readBField').innerText = parseFloat(bField).toFixed(4) + " T";
+            document.getElementById('readCurrent').innerText = current + " A";
+            document.getElementById('readDistortion').innerText = (Math.abs(kick) * 0.12).toFixed(2) + " mm";
+            document.getElementById('readRevTime').innerText = revTime + " µs/turn";
+
+            drawTuneDiagram(simQx, simQy);
+        }
+
+        // --- 7. TUNE DIAGRAM CANVAS DRAWING ---
+
+        const tuneCanvas = document.getElementById('tuneCanvas');
+        const tctx = tuneCanvas.getContext('2d');
+
+        function drawTuneDiagram(qx, qy) {
+            const w = tuneCanvas.width;
+            const h = tuneCanvas.height;
+            tctx.clearRect(0, 0, w, h);
+
+            // Grid lines
+            tctx.strokeStyle = '#1e293b';
+            tctx.lineWidth = 1;
+
+            for (let x = 0; x <= w; x += 28) {
+                tctx.beginPath(); tctx.moveTo(x, 0); tctx.lineTo(x, h); tctx.stroke();
+            }
+            for (let y = 0; y <= h; y += 20) {
+                tctx.beginPath(); tctx.moveTo(0, y); tctx.lineTo(w, y); tctx.stroke();
+            }
+
+            // Resonance Line diagonals
+            tctx.strokeStyle = 'rgba(56, 189, 248, 0.25)';
+            tctx.beginPath(); tctx.moveTo(0, 0); tctx.lineTo(w, h); tctx.stroke();
+            tctx.beginPath(); tctx.moveTo(w, 0); tctx.lineTo(0, h); tctx.stroke();
+
+            // Active Tune Point
+            const ptX = ((qx - 4.0) / 0.6) * w;
+            const ptY = h - ((qy - 3.0) / 1.0) * h;
+
+            tctx.fillStyle = '#ef4444';
+            tctx.beginPath();
+            tctx.arc(ptX, ptY, 4, 0, Math.PI * 2);
+            tctx.fill();
+
+            tctx.strokeStyle = '#38bdf8';
+            tctx.beginPath();
+            tctx.arc(ptX, ptY, 7, 0, Math.PI * 2);
+            tctx.stroke();
+        }
+
+        // --- 8. CAMERA PRESETS & ANIMATIONS ---
+
+        function setView(preset) {
+            switch(preset) {
+                case 'top': animateCamera({ x: 0, y: 140, z: 10 }, { x: 0, y: 0, z: 10 }); break;
+                case 'iso': animateCamera({ x: 70, y: 70, z: 80 }, { x: 0, y: 0, z: 10 }); break;
+                case 'linac': animateCamera({ x: 18, y: 25, z: -20 }, new THREE.Vector3(18, 0.8, -42)); break;
+                case 'ring': animateCamera({ x: 38, y: 35, z: 25 }, ringCenter); break;
+                case 'ts1': animateCamera({ x: -35, y: 25, z: 15 }, ts1Pos); break;
+                case 'ts2': animateCamera({ x: 12, y: 25, z: 85 }, ts2Pos); break;
+            }
+        }
+
+        function animateCamera(targetPos, targetLookAt) {
+            const duration = 750;
+            const startPos = { ...camera.position };
+            const startLookAt = { ...controls.target };
+            const startTime = performance.now();
+
+            function update() {
+                const elapsed = performance.now() - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                const ease = 1 - Math.pow(1 - progress, 3);
+
+                camera.position.x = startPos.x + (targetPos.x - startPos.x) * ease;
+                camera.position.y = startPos.y + (targetPos.y - startPos.y) * ease;
+                camera.position.z = startPos.z + (targetPos.z - startPos.z) * ease;
+
+                controls.target.x = startLookAt.x + (targetLookAt.x - startLookAt.x) * ease;
+                controls.target.y = startLookAt.y + (targetLookAt.y - startLookAt.y) * ease;
+                controls.target.z = startLookAt.z + (targetLookAt.z - startLookAt.z) * ease;
+
+                controls.update();
+                if (progress < 1) requestAnimationFrame(update);
+            }
+            requestAnimationFrame(update);
+        }
+
+        // Initial setup
+        camera.position.set(70, 70, 80);
+        controls.target.set(0, 0, 10);
+        controls.update();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        });
+
+        // Loop
+        const clock = new THREE.Clock();
+        function animate() {
+            requestAnimationFrame(animate);
+            const delta = clock.getDelta();
+            animateBeamParticles(delta);
+
+            if (!isPaused) {
+                currentLaps += Math.floor(delta * 120 * speedMultiplier);
+                document.getElementById('readLaps').innerText = `${currentLaps} laps`;
+            }
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        updatePhysics();
+        animate();
+    </script>
+</body>
+</html>
