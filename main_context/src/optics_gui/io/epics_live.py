@@ -170,7 +170,8 @@ def get_corrector_settings(
 # pv_name_for_bpm to those until staff confirm the real readback PVs.
 # ----------------------------------------------------------------------
 
-from ..orbit_correction import bpm_measurements_from_twiss, normalise_bpm_measurements  # noqa: E402
+from ..orbit_correction import bpm_measurements_from_twiss  # noqa: E402
+from .measurements import normalise_bpm_table  # noqa: E402
 
 
 def bpm_geometry_table(twiss_df, planes=("H", "V")):
@@ -220,4 +221,4 @@ def get_bpm_measurements(geometry_table, fetch_value, pv_name_for_bpm, as_of=Non
             }
         )
 
-    return normalise_bpm_measurements(rows, enabled_default=enabled_default)
+    return normalise_bpm_table(rows, enabled_default=enabled_default)
