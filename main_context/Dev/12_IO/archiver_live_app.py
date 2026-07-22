@@ -13,6 +13,7 @@ Run it once you're on the network:
 """
 
 import sys
+from datetime import date, datetime, time, timezone
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -50,9 +51,36 @@ with st.sidebar:
     st.header("Archiver connection")
     base_url = st.text_input("Archiver base URL", value=DEFAULT_BASE_URL)
     cycle_time_ms = st.number_input("cycle_time_ms", value=0.0, step=0.5)
+    st.caption("cycle_time_ms picks where in the ~10ms accelerator ramp -- every team uses this axis.")
+
+    st.divider()
+    st.header("Point in history")
+    history_mode = st.radio("When", ["Live (now)", "As of a specific day"], index=0)
+    selected_day = None
+    if history_mode == "As of a specific day":
+        selected_day = st.date_input("Day", value=date.today())
+    st.caption(
+        "Separate axis from cycle_time_ms: this picks which calendar day's archive to read "
+        "from. If that exact day has no data, it automatically searches further back in time "
+        "until it finds a real sample -- never invents or interpolates a value."
+    )
+
+
+def _end_of_day_utc(day):
+    return datetime.combine(day, time(23, 59, 59, 999999), tzinfo=timezone.utc)
 
 
 def make_fetch_value():
+    if history_mode == "As of a specific day" and selected_day is not None:
+        pinned_as_of = _end_of_day_utc(selected_day)
+
+        def fetch_value(pv_name, as_of=None):  # as_of param intentionally ignored: pinned_as_of wins
+            return archiver_fetch_value(
+                pv_name, as_of=pinned_as_of, base_url=base_url, lookback_days=1, expand_search=True
+            )
+
+        return fetch_value
+
     def fetch_value(pv_name, as_of=None):
         return archiver_fetch_value(pv_name, as_of=as_of, base_url=base_url)
 

@@ -180,33 +180,103 @@ def _extract_latest_value(payload):
     return float(vals[latest_index])
 
 
-def archiver_fetch_value(pv_name, as_of=None, base_url=DEFAULT_BASE_URL, lookback_days=400, timeout=20):
+def _fetch_latest_in_window(pv_name, to_time, lookback_days, base_url, timeout, raise_on_error=True):
+    """
+    Query /data for one PV over [to_time - lookback_days, to_time] and return
+    the latest sample's value, or None if that window has no samples at all.
+    Shared by archiver_fetch_value's single-window lookup and its
+    expand_search backward-search loop, so both go through one real HTTP
+    call/parse path.
+
+    raise_on_error=False treats a request/HTTP failure the same as "no
+    samples in this window" (returns None) instead of raising -- confirmed
+    live that /data can return a real 500 for a window far enough in the
+    past that this PV has no indexed history there at all, not just an
+    empty result. expand_search's backward loop needs that to read as
+    "keep going," not crash the whole search on the first old window it
+    tries; the default single-window path keeps raise_on_error=True so its
+    existing behavior (surface the real error) is unchanged.
+    """
+
+    from_time = to_time - timedelta(days=lookback_days)
+    try:
+        response = requests.get(
+            f"{base_url}/data",
+            params={"pv": pv_name, "from": _iso(from_time), "to": _iso(to_time)},
+            timeout=timeout,
+        )
+        response.raise_for_status()
+        return _extract_latest_value(response.json())
+    except requests.exceptions.RequestException:
+        if raise_on_error:
+            raise
+        return None
+
+
+# expand_search's backward doubling stops once the window reaches this many
+# days (~100 years) -- a technical safety valve to guarantee the loop
+# terminates and never constructs a nonsensical date, not a business-chosen
+# cutoff. The supervisor's ask was "keep going indefinitely" -- in practice
+# that means "far enough back that hitting this bound means the PV simply
+# has no history at all," not a deliberately short leash.
+_MAX_EXPAND_LOOKBACK_DAYS = 36500
+
+
+def archiver_fetch_value(
+    pv_name,
+    as_of=None,
+    base_url=DEFAULT_BASE_URL,
+    lookback_days=400,
+    timeout=20,
+    expand_search=False,
+):
     """
     Fetch one PV's most recent archived value at or before `as_of`
     (default: now), via /data. Real fetch_value callable for
     get_corrector_settings / get_bpm_measurements / get_trim_quad_currents.
 
+    expand_search=False (default): unchanged single-window behavior -- one
+    lookback_days-wide query ending at as_of, raise ValueError if that
+    window has no samples. Every existing caller uses this path.
+
+    expand_search=True (opt-in, added for a supervisor-requested "pick a
+    historical day" feature -- not part of the documented student-guide
+    spec): if the initial window is empty, double lookback_days and retry
+    with the SAME as_of anchor, searching a strictly larger window each
+    time, until a sample is found or the window exceeds
+    _MAX_EXPAND_LOOKBACK_DAYS (~100 years). This is how "give me the latest
+    value on this specific day, or the nearest one before it" is built: set
+    as_of to the end of that day, lookback_days=1, expand_search=True -- the
+    first search is exactly that day; if empty, it searches backward from
+    there automatically, the same "go back until you find something"
+    philosophy nearest_cycle_time() uses for cycle_time_ms.
+
     Response-shape parsing is confirmed against a real live response
     (see _extract_latest_value). Still raises a clear error naming the
-    raw payload if a given PV/time-range genuinely has no samples,
-    rather than returning something misleading.
+    raw payload/search extent if nothing is ever found, rather than
+    returning something misleading.
     """
 
     to_time = as_of if as_of is not None else datetime.now(timezone.utc)
-    from_time = to_time - timedelta(days=lookback_days)
 
-    response = requests.get(
-        f"{base_url}/data",
-        params={"pv": pv_name, "from": _iso(from_time), "to": _iso(to_time)},
-        timeout=timeout,
-    )
-    response.raise_for_status()
-    payload = response.json()
+    if not expand_search:
+        value = _fetch_latest_in_window(pv_name, to_time, lookback_days, base_url, timeout)
+        if value is None:
+            raise ValueError(
+                f"No archived samples found for {pv_name!r} in the {lookback_days}-day window "
+                f"before {to_time.isoformat()}."
+            )
+        return value
 
-    value = _extract_latest_value(payload)
-    if value is None:
-        raise ValueError(
-            f"No archived samples found for {pv_name!r} in the {lookback_days}-day window "
-            f"before {to_time.isoformat()}. Raw payload: {payload!r}"
-        )
-    return value
+    window = max(1, lookback_days)
+    while True:
+        value = _fetch_latest_in_window(pv_name, to_time, window, base_url, timeout, raise_on_error=False)
+        if value is not None:
+            return value
+        if window >= _MAX_EXPAND_LOOKBACK_DAYS:
+            raise ValueError(
+                f"No archived samples found for {pv_name!r} at or before {to_time.isoformat()} "
+                f"even after expanding the backward search to {window} days (~100 years) -- "
+                "this PV appears to have no history at all before that point."
+            )
+        window = min(window * 2, _MAX_EXPAND_LOOKBACK_DAYS)
