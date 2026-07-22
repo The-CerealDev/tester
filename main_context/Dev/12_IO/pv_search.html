@@ -313,7 +313,12 @@
   }
 
   function saveToStorage(){
-    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(allPvs)); }catch(e){}
+    try{
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(allPvs));
+      return true;
+    }catch(e){
+      return false; // most likely the browser's localStorage quota (~5-10MB) -- caller decides how to warn
+    }
   }
   function loadFromStorage(){
     try{
@@ -331,8 +336,13 @@
   function parseMagnet(name){
     var m = name.match(MAGNET_RE);
     if(!m) return null;
-    return { sp:m[1], family:m[2].toUpperCase(), cycle:m[3] };
+    var family = m[2].toUpperCase();
+    if(family === "HD1" || family === "VD1") family = family.slice(0, -1); // regex group keeps the trailing "1" only for HD1/VD1, not QTD/QTF
+    return { sp:m[1], family:family, cycle:m[3] };
   }
+
+  var DISPLAY_CAP = 2000;
+  var showAllRows = false;
 
   function buildMatcher(){
     var text = state.text;
@@ -389,43 +399,71 @@
       return;
     }
 
-    var html = '<table><thead><tr>' +
-      '<th>PV name</th><th>Magnet</th><th>Cycle</th><th>Appliance</th><th>Status</th><th>Sample&nbsp;period</th>' +
-      '</tr></thead><tbody>';
+    var capNotice = "";
+    var rowsToRender = rows;
+    if(rows.length > DISPLAY_CAP && !showAllRows){
+      rowsToRender = rows.slice(0, DISPLAY_CAP);
+      capNotice = '<div class="hint" style="padding:10px 12px;">Showing the first ' + DISPLAY_CAP + ' of ' + rows.length +
+        ' matches — narrow your search, or <button type="button" id="showAllBtn" style="padding:2px 8px;font-size:12px;">show all ' + rows.length + '</button> (can be slow to render).</div>';
+    }
 
-    rows.forEach(function(row){
+    var parts = ['<table><thead><tr>',
+      '<th>PV name</th><th>Magnet</th><th>Cycle</th><th>Appliance</th><th>Status</th><th>Sample&nbsp;period</th>',
+      '</tr></thead><tbody>'];
+
+    for(var i = 0; i < rowsToRender.length; i++){
+      var row = rowsToRender[i];
       var mag = parseMagnet(row.n);
       var magCell = mag ? '<span class="tag">R' + mag.sp + ' · ' + mag.family + '</span>' : '<span class="dash">—</span>';
       var cycleCell = mag ? '<span class="tag">' + mag.cycle + '&nbsp;ms</span>' : '<span class="dash">—</span>';
       var statusCell = row.c
         ? '<span class="pill ok"><span class="dot"></span>connected</span>'
         : '<span class="pill warn"><span class="dot"></span>disconnected</span>';
-      html += '<tr>' +
-        '<td class="pvname">' + highlightName(row.n, matcher.highlight) + '</td>' +
-        '<td>' + magCell + '</td>' +
-        '<td>' + cycleCell + '</td>' +
-        '<td class="pvname">' + escapeHtml(row.a || "—") + '</td>' +
-        '<td>' + statusCell + '</td>' +
-        '<td class="pvname">' + escapeHtml(row.s || "—") + '</td>' +
-        '</tr>';
-    });
+      parts.push('<tr>',
+        '<td class="pvname">', highlightName(row.n, matcher.highlight), '</td>',
+        '<td>', magCell, '</td>',
+        '<td>', cycleCell, '</td>',
+        '<td class="pvname">', escapeHtml(row.a || "—"), '</td>',
+        '<td>', statusCell, '</td>',
+        '<td class="pvname">', escapeHtml(row.s || "—"), '</td>',
+        '</tr>');
+    }
 
-    html += '</tbody></table>';
-    tableShell.innerHTML = html;
+    parts.push('</tbody></table>');
+    tableShell.innerHTML = capNotice + parts.join("");
+
+    var showAllBtn = document.getElementById("showAllBtn");
+    if(showAllBtn){
+      showAllBtn.addEventListener("click", function(){
+        showAllRows = true;
+        render();
+      });
+    }
   }
 
+  var searchDebounceTimer = null;
   searchInput.addEventListener("input", function(){
-    state.text = searchInput.value;
+    // Debounced: with tens of thousands of PVs, re-filtering and
+    // rebuilding the table on every single keystroke is what caused the
+    // lag -- wait for a short pause in typing instead of reacting to
+    // every character.
+    var value = searchInput.value;
     presetChips.querySelectorAll(".chip[data-pattern]").forEach(function(chip){
-      chip.setAttribute("aria-pressed", chip.dataset.pattern === state.text ? "true" : "false");
+      chip.setAttribute("aria-pressed", chip.dataset.pattern === value ? "true" : "false");
     });
-    render();
+    clearTimeout(searchDebounceTimer);
+    searchDebounceTimer = setTimeout(function(){
+      state.text = value;
+      showAllRows = false;
+      render();
+    }, 150);
   });
 
   regexToggle.addEventListener("click", function(){
     state.regexMode = !state.regexMode;
     regexToggle.setAttribute("aria-pressed", String(state.regexMode));
     regexToggle.title = state.regexMode ? "Regex mode on — click for plain text" : "Plain text mode — click for regex";
+    showAllRows = false;
     render();
   });
 
@@ -439,6 +477,7 @@
       presetChips.querySelectorAll(".chip[data-pattern]").forEach(function(c){
         c.setAttribute("aria-pressed", c === chip ? "true" : "false");
       });
+      showAllRows = false;
       render();
     });
   });
@@ -446,11 +485,13 @@
   connectedChip.addEventListener("click", function(){
     state.connectedOnly = !state.connectedOnly;
     connectedChip.setAttribute("aria-pressed", String(state.connectedOnly));
+    showAllRows = false;
     render();
   });
   nonTestChip.addEventListener("click", function(){
     state.nonTestOnly = !state.nonTestOnly;
     nonTestChip.setAttribute("aria-pressed", String(state.nonTestOnly));
+    showAllRows = false;
     render();
   });
 
@@ -462,10 +503,13 @@
       return;
     }
     allPvs = parsed;
-    saveToStorage();
-    loadMsg.textContent = "Loaded " + parsed.length + " PVs.";
-    loadMsg.style.color = "var(--ok)";
+    var saved = saveToStorage();
+    loadMsg.textContent = saved
+      ? "Loaded " + parsed.length + " PVs."
+      : "Loaded " + parsed.length + " PVs, but couldn't save to localStorage (likely over the browser's ~5-10MB quota at this size) -- it'll work for this session but won't persist on reload.";
+    loadMsg.style.color = saved ? "var(--ok)" : "var(--warn)";
     loaderDetails.open = false;
+    showAllRows = false;
     render();
   });
 
