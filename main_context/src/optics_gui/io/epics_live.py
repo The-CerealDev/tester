@@ -414,3 +414,45 @@ def get_harmonic_tunes(
         values[key] = float(fetch_value(pv_name, as_of=as_of))
 
     return values, missing
+
+
+def get_timepoint_row(
+    cycle_time_ms,
+    fetch_value,
+    list_available_times_dwtrim,
+    as_of=None,
+    ioc=DEFAULT_DWTRIM_IOC,
+    snapshot_id=None,
+    harmonic_keys=HARMONIC_KEYS,
+):
+    """
+    Build one ready-to-use A3 timepoint_table row -- {cycle_time_ms, set_qx,
+    set_qy, snapshot_id, harmonics}, the exact shape the student guide's A3
+    example feeds straight into snapshot_configs_from_table. Combines
+    get_requested_tune() and get_harmonic_tunes() so a caller building a
+    multi-row programme table doesn't have to know both need calling and
+    merging by hand -- see Dev/12_IO/archiver_live_app.py or the pipeline
+    test this was verified against for the multi-row usage pattern.
+
+    Returns (row, missing): row is None if H_Q/V_Q were unavailable (same
+    condition as get_requested_tune); missing is {"tune": [...],
+    "harmonics": [...]}, each passed straight through from the two
+    underlying calls.
+    """
+
+    tune_row, tune_missing = get_requested_tune(
+        cycle_time_ms, fetch_value, list_available_times_dwtrim, as_of=as_of, ioc=ioc
+    )
+    harmonics, harmonics_missing = get_harmonic_tunes(
+        cycle_time_ms, fetch_value, list_available_times_dwtrim, as_of=as_of, ioc=ioc, keys=harmonic_keys
+    )
+    missing = {"tune": tune_missing, "harmonics": harmonics_missing}
+
+    if tune_row is None:
+        return None, missing
+
+    row = dict(tune_row)
+    if snapshot_id is not None:
+        row["snapshot_id"] = snapshot_id
+    row["harmonics"] = dict(harmonics)
+    return row, missing
