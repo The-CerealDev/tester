@@ -5,6 +5,10 @@ __pycache__/
 venv/
 pv_search_cache.json
 
+# Tune GUI team's own repo, cloned in for reference/integration analysis --
+# it's a separate git repo with its own remote, not part of this one.
+TUNE_GROUP/
+
 machine_states/
 machine_states_test/
 madx_runs/
