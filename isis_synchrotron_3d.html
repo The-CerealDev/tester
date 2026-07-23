@@ -8,80 +8,103 @@
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <style>
 :root {
-  --bg: #0a0d14;
-  --panel-bg: rgba(16,20,28,0.92);
-  --border: #2a3140;
-  --text: #d7dde6;
-  --text-dim: #8a93a6;
-  --accent: #3fa9ff;
-  --accent2: #00e0b8;
-  --danger: #ff5a5a;
+  --bg: #eef1f4;
+  --viewport-bg: #10141b;
+  --panel-bg: rgba(255,255,255,0.92);
+  --panel-bg-solid: #ffffff;
+  --border: rgba(23,35,54,0.10);
+  --border-strong: rgba(23,35,54,0.16);
+  --text: oklch(0.27 0.02 258);
+  --text-dim: oklch(0.52 0.02 258);
+  --text-faint: oklch(0.66 0.015 258);
+  --accent: oklch(0.47 0.135 258);
+  --accent-soft: oklch(0.47 0.135 258 / 0.08);
+  --accent-soft-strong: oklch(0.47 0.135 258 / 0.16);
+  --accent2: oklch(0.5 0.1 195);
+  --danger: oklch(0.54 0.19 27);
+  --danger-soft: oklch(0.54 0.19 27 / 0.1);
 }
 * { box-sizing: border-box; }
 html, body { margin:0; padding:0; width:100%; height:100%; background:var(--bg); color:var(--text);
-  overflow:hidden; font-family:'Segoe UI', system-ui, sans-serif; }
+  overflow:hidden; font-family:'Inter', 'Segoe UI', system-ui, sans-serif; -webkit-font-smoothing:antialiased; }
 #viewport { position:fixed; inset:0; }
 #viewport canvas { display:block; }
+input, select, button { font-family:inherit; accent-color:var(--accent); }
+::-webkit-scrollbar { width:8px; height:8px; }
+::-webkit-scrollbar-thumb { background:var(--border-strong); border-radius:8px; }
+::-webkit-scrollbar-track { background:transparent; }
 
 #topBar {
-  position:fixed; top:0; left:0; right:0; height:48px; z-index:10;
+  position:fixed; top:0; left:0; right:0; height:60px; z-index:10;
   display:flex; align-items:center; justify-content:space-between;
-  background:var(--panel-bg); border-bottom:1px solid var(--border); padding:0 16px;
-  font-size:13px;
+  background:var(--panel-bg); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--border); box-shadow:0 1px 0 rgba(23,35,54,0.03), 0 8px 24px rgba(23,35,54,0.05);
+  padding:0 20px; font-size:13px;
 }
-.brand { font-weight:600; letter-spacing:0.03em; color:var(--accent); }
-.playback { display:flex; align-items:center; gap:10px; }
+.brand { display:flex; flex-direction:column; gap:1px; line-height:1.25; }
+.brand .brand-eyebrow { font-weight:700; letter-spacing:0.08em; color:var(--accent); font-size:11px; text-transform:uppercase; }
+.brand .brand-title { font-weight:600; color:var(--text); font-size:14px; letter-spacing:0.01em; }
+.playback { display:flex; align-items:center; gap:8px; }
+.playback .divider { width:1px; height:24px; background:var(--border-strong); margin:0 4px; }
 .playback button {
-  background:#182030; color:var(--text); border:1px solid var(--border); border-radius:4px;
-  padding:5px 10px; cursor:pointer; font-size:12px;
+  background:var(--panel-bg-solid); color:var(--text); border:1px solid var(--border-strong); border-radius:6px;
+  padding:6px 10px; cursor:pointer; font-size:12px; font-weight:500; transition:border-color .15s, background .15s;
+  white-space:nowrap; flex-shrink:0;
 }
-.playback button:hover { border-color:var(--accent); }
-.playback label { font-size:12px; color:var(--text-dim); display:flex; align-items:center; gap:6px; }
+.playback button:hover { border-color:var(--accent); background:var(--accent-soft); color:var(--accent); }
+.playback label { font-size:12px; color:var(--text-dim); display:flex; align-items:center; gap:6px; font-weight:500; }
 .playback select {
-  background:#182030; color:var(--text); border:1px solid var(--border); border-radius:4px;
-  padding:4px 6px; font-size:12px;
+  background:var(--panel-bg-solid); color:var(--text); border:1px solid var(--border-strong); border-radius:6px;
+  padding:5px 8px; font-size:12.5px;
 }
 .playback select:hover { border-color:var(--accent); }
 .badge {
-  display:none; background:var(--danger); color:#1a0505; font-weight:700; font-size:11px;
-  padding:3px 8px; border-radius:10px;
+  display:none; background:var(--danger-soft); color:var(--danger); font-weight:700; font-size:11px;
+  padding:4px 10px; border-radius:10px; border:1px solid oklch(0.54 0.19 27 / 0.25);
 }
 
 .panel {
-  position:fixed; top:56px; bottom:12px; width:300px; z-index:9;
-  background:var(--panel-bg); border:1px solid var(--border); border-radius:8px;
-  overflow-y:auto; padding:10px 12px; font-size:12px;
+  position:fixed; top:72px; bottom:12px; width:300px; z-index:9;
+  background:var(--panel-bg); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+  border:1px solid var(--border); border-radius:12px; box-shadow:0 12px 32px rgba(23,35,54,0.08);
+  overflow-y:auto; padding:14px 16px; font-size:12px;
 }
 .panel.left { left:12px; }
 .panel.right { right:12px; width:300px; }
 
-.panel details { margin-bottom:10px; border-bottom:1px solid var(--border); padding-bottom:8px; }
-.panel summary { cursor:pointer; font-weight:600; color:var(--accent); padding:4px 0; font-size:12.5px; }
+.panel details { margin-bottom:10px; border-bottom:1px solid var(--border); padding-bottom:10px; }
+.panel summary { cursor:pointer; font-weight:700; color:var(--text); padding:4px 0; font-size:11.5px;
+  text-transform:uppercase; letter-spacing:0.06em; }
+.panel summary:hover { color:var(--accent); }
 
-.ctrl-row { margin:8px 0; }
+.ctrl-row { margin:10px 0; }
 .ctrl-row label { display:flex; flex-direction:column; margin-bottom:3px; }
-.ctrl-name { font-family: Consolas, monospace; color:var(--accent2); font-size:11.5px; }
+.ctrl-name { font-family: 'SF Mono', Consolas, monospace; color:var(--accent2); font-size:11.5px; font-weight:600; }
 .ctrl-gloss { color:var(--text-dim); font-size:10.5px; }
 .ctrl-row input[type=range] { width:100%; }
-.ctrl-row select { width:100%; background:#101622; color:var(--text); border:1px solid var(--border);
-  border-radius:4px; padding:3px; }
-.ctrl-readout { display:block; text-align:right; font-family:Consolas,monospace; color:var(--text); font-size:11px; }
+.ctrl-row select { width:100%; background:oklch(0.98 0.004 258); color:var(--text); border:1px solid var(--border-strong);
+  border-radius:5px; padding:4px; }
+.ctrl-readout { display:block; text-align:right; font-family:'SF Mono', Consolas, monospace; color:var(--text); font-size:11px; }
 
-.panel-block { margin-bottom:12px; }
-.panel-block h3 { margin:4px 0 8px; font-size:12.5px; color:var(--accent); }
-.readout-table { width:100%; border-collapse:collapse; font-size:11.5px; }
-.readout-table td { padding:3px 2px; border-bottom:1px solid #1b2130; }
+.panel-block { margin-bottom:14px; }
+.panel-block h3 { margin:2px 0 10px; font-size:11.5px; color:var(--text-dim); font-weight:700;
+  text-transform:uppercase; letter-spacing:0.06em; }
+.readout-table { width:100%; border-collapse:collapse; font-size:12px; }
+.readout-table tr:last-child td { border-bottom:none; }
+.readout-table td { padding:6px 2px; border-bottom:1px solid var(--border); }
 .readout-table td:first-child { color:var(--text-dim); }
-.readout-table td:last-child { text-align:right; font-family:Consolas,monospace; color:var(--accent2); }
+.readout-table td:last-child { text-align:right; font-family:'SF Mono', Consolas, monospace; color:var(--accent2); font-weight:600; }
 
-#tuneDiagram { width:100%; background:#0c1018; border:1px solid var(--border); border-radius:4px; }
+#tuneDiagram { width:100%; background:var(--viewport-bg); border:1px solid var(--border-strong); border-radius:6px; }
 
-.legend { display:flex; flex-direction:column; gap:4px; font-size:11px; }
-.legend .swatch { display:inline-block; width:10px; height:10px; margin-right:6px; border-radius:2px;
-  vertical-align:middle; }
+.legend { display:flex; flex-direction:column; gap:2px; font-size:11.5px; }
+.legend > div { padding:4px 6px; border-radius:5px; transition:background .15s; }
+.legend .swatch { display:inline-block; width:10px; height:10px; margin-right:8px; border-radius:2px;
+  vertical-align:middle; box-shadow:0 0 0 1px rgba(23,35,54,0.15); }
+.legend > div.legend-active { background:var(--accent-soft-strong); font-weight:600; }
 
-.about-list { padding-left:16px; margin:6px 0; font-size:10.8px; color:var(--text-dim); line-height:1.5; }
-.about-list code { color:var(--accent2); }
+.about-list { padding-left:16px; margin:6px 0; font-size:10.8px; color:var(--text-dim); line-height:1.6; }
+.about-list code { color:var(--accent2); background:oklch(0.5 0.1 195 / 0.08); padding:0 4px; border-radius:3px; }
 </style>
 </head>
 <body>
@@ -89,7 +112,7 @@ html, body { margin:0; padding:0; width:100%; height:100%; background:var(--bg);
 <div id="viewport"></div>
 
 <div id="topBar">
-  <div class="brand">ISIS RCS — Live Synchrotron Model</div>
+  <div class="brand"><span class="brand-eyebrow">ISIS RAL &middot; RCS</span><span class="brand-title">Live Synchrotron Optics Model</span></div>
   <div class="playback">
     <button id="playPauseBtn">Pause</button>
     <label>Speed <input id="speedSlider" type="range" min="0.02" max="1.5" step="0.02" value="0.15"></label>
@@ -147,15 +170,15 @@ html, body { margin:0; padding:0; width:100%; height:100%; background:var(--bg);
     <h3>Tune diagram (Qx vs Qy)</h3>
     <canvas id="tuneDiagram" width="300" height="260"></canvas>
   </div>
-  <details class="panel-block">
+  <details class="panel-block" id="viewLegendDetails">
     <summary>Legend</summary>
     <div class="legend">
-      <div><span class="swatch" style="background:#8a8a3c"></span>Dipole</div>
-      <div><span class="swatch" style="background:#c0392b"></span>Defocus quadrupole</div>
-      <div><span class="swatch" style="background:#1a3d7c"></span>Focus quadrupole</div>
-      <div><span class="swatch" style="background:#1f8a5f"></span>Sextupole</div>
-      <div><span class="swatch" style="background:#17c9c9"></span>Corrector / kicker</div>
-      <div><span class="swatch" style="background:#e08a1e"></span>RF cavity (schematic)</div>
+      <div data-legend-type="dipole"><span class="swatch" style="background:#d4ac0d"></span>Dipole</div>
+      <div data-legend-type="quad_focus,quad_defocus"><span class="swatch" style="background:#439a46"></span>Quadrupole (lattice)</div>
+      <div data-legend-type="trimquad_focus,trimquad_defocus"><span class="swatch" style="background:#d32f2f"></span>Trim quadrupole</div>
+      <div data-legend-type="sextupole"><span class="swatch" style="background:#8e44ad"></span>Sextupole</div>
+      <div data-legend-type="corrector_h,corrector_v"><span class="swatch" style="background:#17c9c9"></span>Corrector / kicker</div>
+      <div data-legend-type="rf"><span class="swatch" style="background:#e08a1e"></span>RF cavity (schematic)</div>
     </div>
   </details>
   <details class="panel-block">
@@ -169,7 +192,8 @@ html, body { margin:0; padding:0; width:100%; height:100%; background:var(--bg);
       <li>The RF cavity marker follows the PDF's single-period schematic (page 27) but does not exist in ISIS.elements/ISIS.sequence — schematic only.</li>
       <li>The superperiod-9 sextupole is real (k2=0 in source) but shown as a static visual element — no portable nonlinear formula exists to animate it.</li>
       <li>Aperture margin uses an illustrative ±40&nbsp;mm placeholder half-width, not a repo-sourced value (real aperture data lives in an external CSV, not a portable default).</li>
-      <li>Element colours follow the PDF's beta-function-plot legend (pages 28/32/33): Dipole=olive, Defocus quad=red, Focus quad=blue, Sextupole=teal, Kicker=cyan, Marker=grey — chosen over the conflicting page-27 single-period cartoon since the legend is tied to the quantitative plots.</li>
+      <li>Element colours now follow STFC's official "A Practical Guide to the ISIS Neutron and Muon Source": dipole=yellow and quadrupole=green per the guide's synchrotron schematic (Fig. 3.9, "Yellow, dipoles; dark green, quadrupoles; red, trim magnets"), corroborated by an actual accelerator-hall photo caption (Fig. 3.14: "lattice quadrupoles (light green) ... trim quadrupoles (red)"). Focus and defocus lattice quadrupoles now share one real colour, replacing an earlier invented blue/red split that didn't correspond to any documented or photographed colour. Correctors, the sextupole and the RF marker aren't colour-documented in that guide, so they keep distinct placeholder colours.</li>
+      <li>The 3D ring path is traced from each real dipole's actual bend angle and length (rather than fitted to an idealised circle), so its shape reflects the synchrotron's genuine 10-fold symmetry — ten 36° bends, per the same STFC guide. The octagonal floor beneath it is deliberately a separate 8-fold shape: the guide notes that the accelerator hall itself (not the ring) inherited 8-fold symmetry from the earlier Nimrod synchrotron that occupied the same room.</li>
       <li>Harmonic sliders (D7SIN…F9COS) are shown because they are real <code>MachineState</code> fields, but no formula in the ported Python connects them to tune/orbit/envelope — they are inert here.</li>
       <li>Click any coloured element in the 3D view to fly the camera to it and see its details, or use the "Focus" dropdown in the top bar to jump straight to a superperiod.</li>
     </ul>
@@ -880,14 +904,21 @@ const REAL_LATTICE_TEMPLATE = [
   {type:"dipole",sp:9,length:0.04,k1Base:0.01101772,scaleKey:"fringe_dipole_scale",angle:0.001757},
 ];
 
+// Sourced from STFC's "A Practical Guide to the ISIS Neutron and Muon
+// Source": the synchrotron schematic (Fig. 3.9) labels "Yellow, dipoles;
+// dark green, quadrupoles; red, trim magnets", and a real accelerator-hall
+// photo caption (Fig. 3.14) independently confirms "lattice quadrupoles
+// (light green) ... trim quadrupoles (red)". Focus and defocus lattice
+// quadrupoles are the same real magnet colour, so they share one value here
+// (the guide's photos don't distinguish them by colour, only by function).
 const ELEMENT_COLOURS = {
-  dipole: 0x8a8a3c,
-  quad_focus: 0x1a3d7c,
-  quad_defocus: 0xc0392b,
-  trimquad_focus: 0x5f8fe0,
-  trimquad_defocus: 0xe07a6c,
+  dipole: 0xd4ac0d,
+  quad_focus: 0x439a46,
+  quad_defocus: 0x439a46,
+  trimquad_focus: 0xd32f2f,
+  trimquad_defocus: 0xd32f2f,
   corrector: 0x17c9c9,
-  sextupole: 0x1f8a5f,
+  sextupole: 0x8e44ad,
   rf: 0xe08a1e,
 };
 
@@ -1342,19 +1373,23 @@ const beamMarker = new THREE.Mesh(
   new THREE.MeshBasicMaterial({ color: 0x00ffcc })
 );
 
+const RING_UP = new THREE.Vector3(0, 1, 0);
+
+// Called every frame for the beam marker (and hundreds of times per physics
+// recompute while building orbit/envelope tubes), so this avoids allocating
+// vectors getPointAt/getTangentAt already return fresh each call.
 function ringPositionAndFrame(s) {
   const ring = RING_CIRCUMFERENCE_M;
   const t = (((s % ring) + ring) % ring) / ring;
   const pos = ringCurve.getPointAt(t);
-  const tangent = ringCurve.getTangentAt(t).clone().normalize();
-  const up = new THREE.Vector3(0, 1, 0);
-  const radial = new THREE.Vector3().crossVectors(tangent, up).normalize();
-  return { pos, tangent, up, radial };
+  const tangent = ringCurve.getTangentAt(t).normalize();
+  const radial = new THREE.Vector3().crossVectors(tangent, RING_UP).normalize();
+  return { pos, tangent, up: RING_UP, radial };
 }
 
 function worldPositionForOffset(s, xOffsetM, yOffsetM) {
   const f = ringPositionAndFrame(s);
-  return f.pos.clone().addScaledVector(f.radial, xOffsetM).addScaledVector(f.up, yOffsetM);
+  return f.pos.addScaledVector(f.radial, xOffsetM).addScaledVector(f.up, yOffsetM);
 }
 
 class OffsetCurve extends THREE.Curve {
@@ -1375,14 +1410,39 @@ class OffsetCurve extends THREE.Curve {
   }
 }
 
+// Traces the real floor-plan shape by walking the actual element sequence
+// and turning by each dipole's real bend angle over its real length, instead
+// of fitting an idealised circle. Per STFC's "A Practical Guide to the ISIS
+// Neutron and Muon Source", the ISIS synchrotron ring itself has 10-fold
+// symmetry (ten superperiods, each bending 36 degrees) — a distinct fact
+// from the accelerator hall's own 8-fold symmetry (see the floor mesh in
+// initScene), which the ring doesn't share.
 function buildRingCurve() {
-  const R = RING_CIRCUMFERENCE_M / (2 * Math.PI);
-  const pts = [];
-  for (let i = 0; i < N_SUPERPERIODS; i++) {
-    const angle = (i / N_SUPERPERIODS) * Math.PI * 2;
-    const r = R * (1 + 0.04 * Math.cos(4 * angle)); // subtle octagon-ish faceting, echoing the PDF hall shape
-    pts.push(new THREE.Vector3(r * Math.cos(angle), 0, r * Math.sin(angle)));
-  }
+  let x = 0, z = 0, heading = 0;
+  const pts = [new THREE.Vector3(0, 0, 0)];
+  REAL_LATTICE_TEMPLATE.forEach(el => {
+    const L = el.length;
+    if (el.type === 'dipole' && el.angle) {
+      const steps = 4;
+      const dTheta = el.angle / steps;
+      const dL = L / steps;
+      for (let i = 0; i < steps; i++) {
+        heading += dTheta / 2;
+        x += dL * Math.cos(heading);
+        z += dL * Math.sin(heading);
+        heading += dTheta / 2;
+        pts.push(new THREE.Vector3(x, 0, z));
+      }
+    } else if (L > 0) {
+      x += L * Math.cos(heading);
+      z += L * Math.sin(heading);
+      pts.push(new THREE.Vector3(x, 0, z));
+    }
+  });
+  const centre = new THREE.Vector3();
+  pts.forEach(p => centre.add(p));
+  centre.divideScalar(pts.length);
+  pts.forEach(p => p.sub(centre));
   ringCurve = new THREE.CatmullRomCurve3(pts, true, 'catmullrom', 0.5);
 }
 
@@ -1399,6 +1459,14 @@ function elementVisualSpec(el) {
     default: return null; // drift — not rendered
   }
 }
+
+// Lattice element geometry/position/colour never change after this first
+// build (they depend only on the fixed real lattice, not on machineState),
+// so this must run exactly once (see bootstrap) rather than on every
+// physics recompute — rebuilding ~600 meshes per slider tick was the source
+// of visible stutter in the moving beam marker. Only emissive glow varies
+// per recompute, handled separately and cheaply by updateElementIntensities.
+let dynamicIntensityEntries = [];
 
 function buildElementMeshes() {
   elementMeshes.forEach(m => { ringGroup.remove(m.mesh); m.mesh.geometry.dispose(); m.mesh.material.dispose(); });
@@ -1417,10 +1485,16 @@ function buildElementMeshes() {
     ringGroup.add(mesh);
     elementMeshes.push({ mesh, el, mat });
   });
+  dynamicIntensityEntries = elementMeshes.filter(({ el }) =>
+    el.type === 'trimquad_defocus' || el.type === 'trimquad_focus' ||
+    el.type === 'corrector_h' || el.type === 'corrector_v');
 }
 
+// Only trim quads and correctors ever glow (see buildElementMeshes above);
+// every other element's emissive is set once at creation and never changes,
+// so iterating the full ~600-element list here every frame was pure waste.
 function updateElementIntensities() {
-  elementMeshes.forEach(({ el, mat }) => {
+  dynamicIntensityEntries.forEach(({ el, mat }) => {
     let intensity = 0;
     if (el.type === 'trimquad_defocus') intensity = Math.min(1, Math.abs(machineState.kqtd) * 20);
     else if (el.type === 'trimquad_focus') intensity = Math.min(1, Math.abs(machineState.kqtf) * 20);
@@ -1460,7 +1534,7 @@ function rebuildOrbitAndEnvelopeMeshes() {
 
 function initScene() {
   scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x0a0d14);
+  scene.background = new THREE.Color(0x10141b);
 
   camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 2000);
   camera.position.set(10, 45, 65);
@@ -1481,8 +1555,12 @@ function initScene() {
   scene.add(ringGroup);
 
   floorMesh = new THREE.Mesh(
+    // 8 segments, not a smooth circle: the guide notes the accelerator hall
+    // reflects the 8-fold symmetry of the old Nimrod synchrotron that used
+    // to occupy this room — a real, separate fact from the ring's own
+    // 10-fold symmetry (see buildRingCurve).
     new THREE.CircleGeometry(40, 8),
-    new THREE.MeshStandardMaterial({ color: 0x14181f, side: THREE.DoubleSide, transparent: true, opacity: machineState.floor_opacity })
+    new THREE.MeshStandardMaterial({ color: 0x181d26, side: THREE.DoubleSide, transparent: true, opacity: machineState.floor_opacity })
   );
   floorMesh.rotation.x = -Math.PI / 2;
   scene.add(floorMesh);
@@ -1515,6 +1593,13 @@ function initScene() {
     if (entry) focusOnElementEntry(entry);
   });
 
+  renderer.domElement.addEventListener('pointermove', (e) => {
+    if (pointerDownAt) return; // mid-drag/orbit, don't fight the cursor
+    const entry = pickElementAtClient(e.clientX, e.clientY);
+    setHoveredEntry(entry);
+  });
+  renderer.domElement.addEventListener('pointerleave', () => setHoveredEntry(null));
+
   window.addEventListener('resize', onResize);
 }
 
@@ -1533,6 +1618,7 @@ let focusedSuperperiod = null;
 let focusedElementId = null;
 let selectionOutlineMesh = null;
 let pointerDownAt = null;
+let hoveredEntry = null;
 const raycaster = new THREE.Raycaster();
 const pointerNdc = new THREE.Vector2();
 
@@ -1575,6 +1661,21 @@ function clearSelectionOutline() {
   }
 }
 
+function setHoveredEntry(entry) {
+  if (entry === hoveredEntry) return;
+  if (hoveredEntry && hoveredEntry.el.id !== focusedElementId) {
+    hoveredEntry.mesh.material.emissive.setHex(0x000000);
+    hoveredEntry.mesh.scale.set(1, 1, 1);
+  }
+  hoveredEntry = entry;
+  if (hoveredEntry && hoveredEntry.el.id !== focusedElementId) {
+    hoveredEntry.mesh.material.emissive.setHex(0xffcc00);
+    hoveredEntry.mesh.material.emissiveIntensity = 1.1;
+    hoveredEntry.mesh.scale.set(1.18, 1.18, 1.18);
+  }
+  renderer.domElement.style.cursor = hoveredEntry ? 'pointer' : 'default';
+}
+
 function highlightElementEntry(entry) {
   clearSelectionOutline();
   if (!entry) return;
@@ -1605,20 +1706,43 @@ function describeElementValue(el) {
   return '–';
 }
 
+const ELEMENT_TYPE_LABELS = {
+  dipole: 'Dipole (bending magnet)',
+  quad_focus: 'Focusing quadrupole',
+  quad_defocus: 'Defocusing quadrupole',
+  trimquad_focus: 'Trim quadrupole (focus)',
+  trimquad_defocus: 'Trim quadrupole (defocus)',
+  corrector_h: 'Corrector dipole (horizontal)',
+  corrector_v: 'Corrector dipole (vertical)',
+  sextupole: 'Sextupole',
+  rf: 'RF cavity',
+};
+
+function highlightLegendForType(type) {
+  document.querySelectorAll('#viewLegendDetails > .legend > div').forEach(row => {
+    const types = (row.getAttribute('data-legend-type') || '').split(',');
+    row.classList.toggle('legend-active', types.includes(type));
+  });
+}
+
 function showFocusInfoForElement(el) {
   document.getElementById('focusInfoBlock').style.display = '';
   setText('fi-id', el.id);
-  setText('fi-type', el.type);
+  setText('fi-type', ELEMENT_TYPE_LABELS[el.type] || el.type);
   setText('fi-sp', String(el.sp));
   setText('fi-s', fmt(el.s0 + el.length / 2, 3) + ' m');
   setText('fi-length', fmt(el.length, 4) + ' m');
   setText('fi-k1', describeElementValue(el));
   document.getElementById('clearFocusBtn').style.display = '';
+  const legendDetails = document.getElementById('viewLegendDetails');
+  if (legendDetails) legendDetails.open = true;
+  highlightLegendForType(el.type);
 }
 
 function hideFocusInfo() {
   document.getElementById('focusInfoBlock').style.display = 'none';
   document.getElementById('clearFocusBtn').style.display = 'none';
+  highlightLegendForType(null);
 }
 
 function focusOnSuperperiod(sp) {
@@ -1930,7 +2054,6 @@ function animate() {
   const dt = Math.min(clock.getDelta(), 0.1);
 
   if (sceneDirty) {
-    buildElementMeshes();
     rebuildOrbitAndEnvelopeMeshes();
     refreshFocusAfterRebuild();
     sceneDirty = false;
@@ -1981,6 +2104,7 @@ document.getElementById('clearFocusBtn').addEventListener('click', returnToOverv
 buildUIPanel();
 initScene();
 recomputePhysics();
+buildElementMeshes(); // one-time: lattice geometry/position/colour never change after this
 animate();
 
 (function sanityCheck() {
