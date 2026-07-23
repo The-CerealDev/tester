@@ -425,6 +425,24 @@ def save_search_cache(records):
         pass
 
 
+def reset_search_filters():
+    """
+    Clear the active search filter whenever the PV list itself changes.
+
+    Without this, a leftover filter (typed search text, or a quick-filter
+    preset like "HD correctors" clicked earlier) stays active against the
+    newly loaded/fetched data -- if none of the new PVs happen to match
+    the old filter, the results table silently shows 0 rows even though
+    the load/fetch itself succeeded. Real bug, found by driving this app
+    through streamlit.testing.v1.AppTest: fetch live data right after
+    clicking a preset, and the table comes back empty despite a real
+    "Fetched N PVs" success message.
+    """
+
+    st.session_state.search_text = ""
+    st.session_state.search_regex_mode = False
+
+
 with tab_search:
     badge("confirmed live", "ok")
     st.caption(
@@ -458,17 +476,20 @@ with tab_search:
             else:
                 st.session_state.pv_records = records
                 st.session_state.search_data_version += 1
+                reset_search_filters()
                 save_search_cache(records)
                 st.success(f"Loaded {len(records)} PVs.")
                 st.rerun()
         if col_b.button("Load example rows"):
             st.session_state.pv_records = SEARCH_EXAMPLE_ROWS
             st.session_state.search_data_version += 1
+            reset_search_filters()
             save_search_cache(SEARCH_EXAMPLE_ROWS)
             st.rerun()
         if col_c.button("Clear all data"):
             st.session_state.pv_records = []
             st.session_state.search_data_version += 1
+            reset_search_filters()
             if SEARCH_CACHE_PATH.exists():
                 SEARCH_CACHE_PATH.unlink()
             st.rerun()
@@ -487,6 +508,7 @@ with tab_search:
             else:
                 st.session_state.pv_records = records
                 st.session_state.search_data_version += 1
+                reset_search_filters()
                 save_search_cache(records)
                 st.success(f"Loaded {len(records)} PVs from {uploaded_file.name}.")
                 st.rerun()
@@ -522,6 +544,7 @@ with tab_search:
                     wrapped = [{"pvName": name} for name in names]
                     st.session_state.pv_records = wrapped
                     st.session_state.search_data_version += 1
+                    reset_search_filters()
                     save_search_cache(wrapped)
                     st.success(f"Fetched {len(wrapped)} PVs live from the archiver.")
                     st.rerun()
