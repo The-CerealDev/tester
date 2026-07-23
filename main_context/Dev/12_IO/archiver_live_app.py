@@ -14,6 +14,7 @@ Run it once you're on the network:
     streamlit run Dev/12_IO/archiver_live_app.py
 """
 
+import hashlib
 import json
 import re
 import sys
@@ -35,6 +36,7 @@ from optics_gui.io import (
     archiver_list_available_times_dwtrim,
     archiver_list_pvs,
     bpm_geometry_table,
+    dwtrim_pv_name,
     get_bpm_measurements,
     get_corrector_settings,
     get_harmonic_tunes,
@@ -139,6 +141,20 @@ def badge(label, kind="ok"):
     st.markdown(f'<span class="badge badge-{kind}">{label}</span>', unsafe_allow_html=True)
 
 
+def prospective_value(seed, low, high):
+    """
+    Deterministic placeholder value for a prospective (not-yet-real) PV --
+    same seed always gives the same number, so a preview looks stable
+    across reruns without needing a real fetch. Only ever used for
+    features staff have said are prospective (planned, not confirmed
+    live), never as a stand-in for something that should be real.
+    """
+
+    digest = hashlib.sha256(seed.encode("utf-8")).hexdigest()
+    fraction = int(digest[:8], 16) / 0xFFFFFFFF
+    return round(low + fraction * (high - low), 4)
+
+
 tab_correctors, tab_tune, tab_bpm, tab_search, tab_status = st.tabs(
     ["Correctors (A1)", "Tune & Harmonics (A3)", "BPM (A2)", "PV Search", "Architecture & Status"]
 )
@@ -215,30 +231,49 @@ with tab_tune:
             st.json(dict(values))
             if harmonics_missing:
                 st.warning(f"No data for: {harmonics_missing}")
+                with st.expander(f"Prospective preview: if {', '.join(harmonics_missing)} existed"):
+                    badge("prospective", "pending")
+                    st.caption(
+                        "Not live, not fabricated as real -- staff have indicated these may be added "
+                        "to the control system in future. PV names below use the real dwtrim_pv_name() "
+                        "the moment they're added, they'd read that way automatically -- but the values "
+                        "shown are placeholders, not archived data."
+                    )
+                    preview_rows = [
+                        {
+                            "signal": signal,
+                            "pv_name": dwtrim_pv_name(signal, cycle_time_ms),
+                            "placeholder_value": prospective_value(signal, -0.002, 0.002),
+                        }
+                        for signal in harmonics_missing
+                    ]
+                    st.dataframe(pd.DataFrame(preview_rows), use_container_width=True, hide_index=True)
 
 # ----------------------------------------------------------------------
-# A2 -- BPM (parked)
+# A2 -- BPM (prospective)
 # ----------------------------------------------------------------------
 with tab_bpm:
-    badge("parked", "pending")
+    badge("prospective", "pending")
     st.caption(
-        "Geometry (bpm/plane/s) comes from a real MAD-X TWISS run -- no EPICS needed for that part. "
-        "The readback PV pattern below is a real live-found candidate "
-        "(RNG:DIAG:POS:R{sp}HM/VM{n}:POSITION -- 38 devices, confirmed to hold a genuinely varying "
-        "value, unlike every setpoint PV checked), NOT yet confirmed by staff. Deliberately parked "
-        "rather than wired in by default -- BPM isn't heavily used in the control system yet."
+        "Prospective, not live: staff have indicated BPM readback PVs may be added to the control "
+        "system in future, but nothing is confirmed yet. Geometry (bpm/plane/s) below is real, from "
+        "a real MAD-X TWISS run -- no EPICS needed for that part. The measurement table is a preview "
+        "using test data through the real get_bpm_measurements()/normalise_bpm_table() code path, "
+        "not a live fetch -- it shows the exact shape/columns the real thing will have once readback "
+        "PVs exist, without depending on any PV name that isn't confirmed."
+    )
+    st.caption(
+        "Candidate readback pattern if/when this is added: `RNG:DIAG:POS:{bpm}:POSITION` "
+        "(uppercase, no sp{n}_ prefix) -- found live via /glob, confirmed to hold a genuinely varying "
+        "value unlike every setpoint PV checked, but NOT staff-confirmed. Shown for reference only; "
+        "the preview below uses test data, not this pattern."
     )
 
     lattice_folder = st.text_input(
         "Lattice folder", value=str(REPO_ROOT / "Dev" / "Lattice_Files" / "00_Simplified_Lattice")
     )
-    bpm_pv_pattern = st.text_input(
-        "BPM PV name pattern (use {bpm} and {plane})",
-        value="UNCONFIRMED::{bpm}:{plane}",
-        help="Try RNG:DIAG:POS:{bpm}:POSITION (uppercase, strip the sp{n}_ prefix) to test the live candidate.",
-    )
 
-    if st.button("Fetch BPM measurements", type="primary"):
+    if st.button("Preview BPM table (test data)", type="primary"):
         with st.spinner("Running MAD-X for BPM geometry..."):
             beam_state = RCSRamp().state_at(cycle_time_ms)
             machine_state = MachineState.from_defaults(beam_state=beam_state)
@@ -256,15 +291,15 @@ with tab_bpm:
 
         st.caption(f"Geometry OK -- {len(geometry)} real BPM positions from the lattice.")
 
-        def pv_name_for_bpm(bpm_label, plane):
-            return bpm_pv_pattern.format(bpm=str(bpm_label).upper(), plane=plane)
+        def test_fetch_value(pv_name, as_of=None):  # noqa: ARG001 -- no network, deterministic placeholder
+            return prospective_value(pv_name, -2.2, 2.2)
 
-        try:
-            measurements = get_bpm_measurements(geometry, make_fetch_value(), pv_name_for_bpm)
-        except Exception as exc:  # noqa: BLE001
-            st.error(f"Fetch failed: {exc}")
-        else:
-            st.dataframe(measurements, use_container_width=True)
+        def pv_name_for_bpm(bpm_label, plane):
+            return f"RNG:DIAG:POS:{str(bpm_label).upper()}:POSITION"
+
+        measurements = get_bpm_measurements(geometry, test_fetch_value, pv_name_for_bpm)
+        st.dataframe(measurements, use_container_width=True)
+        st.caption("closed_orbit_mm above is deterministic test data, not a real archiver value.")
 
 # ----------------------------------------------------------------------
 # PV Search
@@ -580,11 +615,11 @@ with tab_status:
         ("ok", "HD/VD corrector currents -- A1 (14 magnets)", "PV names + availability confirmed live; get_corrector_settings() tested end-to-end against the real archiver"),
         ("ok", "BPM geometry -- A2 (bpm/plane/s, 36 monitors)", "Pulled from a real MAD-X TWISS run; no EPICS needed"),
         ("ok", "Requested tune -- A3 (fetched directly, not derived)", "Real DWTRIM::H_Q/V_Q tune-setpoint PVs, read per cycle time, no averaging"),
-        ("ok", "Harmonic amplitudes -- A3 (D7/D8/F8)", "6 of 8 DEFAULT_HARMONICS keys confirmed live; F9SIN/F9COS confirmed absent (not a naming miss), flagged for staff"),
+        ("ok", "Harmonic amplitudes -- A3 (D7/D8/F8)", "6 of 8 DEFAULT_HARMONICS keys confirmed live; F9SIN/F9COS are prospective -- staff confirmed these are not yet in the control system, preview available in the Tune & Harmonics tab"),
         ("ok", "Archiver value fetching (/data, /getPVStatus, /glob)", "All three real endpoints confirmed live, including a real HTTP 429 and 500 encountered and handled"),
         ("ok", "Historical day-picking (expand_search)", "Read the latest value on a specific calendar day, expanding the search window backward automatically if that day has none"),
         ("ok", "B/C/D downstream pipeline", "This team's live data proven end-to-end through build_machine_snapshot and build_full_cycle_snapshot_series"),
-        ("pending", "BPM closed-orbit readback PVs", "Strong real candidate found (RNG:DIAG:POS:R{sp}HM/VM{n}:POSITION, confirmed genuinely varying) but deliberately parked"),
+        ("pending", "BPM closed-orbit readback PVs", "Prospective -- staff confirmed this is not yet in the control system. A live-found candidate exists (RNG:DIAG:POS:R{sp}HM/VM{n}:POSITION) but isn't wired to a real fetch; the BPM tab previews the real output shape with test data instead"),
     ]
     ledger_html = ""
     for status, what, note in ledger_items:
