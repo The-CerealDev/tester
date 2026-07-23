@@ -17,6 +17,7 @@ from .epics_archiver_client import (
     archiver_fetch_value,
     archiver_list_available_times,
     archiver_list_available_times_dwtrim,
+    archiver_list_pvs,
 )
 from .epics_live import (
     bpm_geometry_table,
@@ -45,6 +46,7 @@ __all__ = [
     "archiver_fetch_value",
     "archiver_list_available_times",
     "archiver_list_available_times_dwtrim",
+    "archiver_list_pvs",
     "bpm_geometry_table",
     "config_from_record",
     "config_to_record",
