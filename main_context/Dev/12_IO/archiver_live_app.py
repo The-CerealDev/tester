@@ -58,19 +58,23 @@ st.markdown(
     .badge-warn { background:rgba(194,63,56,0.16); color:#c23f38; }
     .badge-pending { background:rgba(61,111,150,0.16); color:#3d6f96; }
     .badge::before { content:""; width:6px; height:6px; border-radius:50%; background:currentColor; }
-    .pv-name { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size:0.85rem;
-      background: rgba(127,127,127,0.14); padding:2px 6px; border-radius:4px; }
-    .stage-row { display:flex; flex-wrap:wrap; gap:0; align-items:stretch; margin:6px 0 14px; }
+    .stage-row { display:flex; flex-wrap:wrap; gap:10px 0; align-items:stretch; margin:6px 0 14px; }
     .stage { background: rgba(127,127,127,0.07); border:1px solid rgba(127,127,127,0.22); border-radius:8px;
-      padding:12px 14px; flex:1 1 150px; min-width:150px; }
+      padding:12px 14px; flex:1 1 170px; min-width:170px; }
     .stage .stage-name { font-family: ui-monospace, Consolas, monospace; font-size:0.8rem; font-weight:700; margin-bottom:4px; }
     .stage .stage-desc { font-size:0.78rem; opacity:0.75; line-height:1.4; }
-    .stage-arrow { display:flex; align-items:center; justify-content:center; padding:0 8px; opacity:0.5; font-size:18px; }
+    .stage-arrow { display:flex; align-items:center; justify-content:center; padding:0 10px; opacity:0.5; font-size:18px; }
+    @media (max-width: 900px) {
+      .stage-row { flex-direction:column; }
+      .stage { flex:1 1 auto; }
+      .stage-arrow { transform:rotate(90deg); padding:2px 0; }
+    }
     .ledger-row { display:flex; gap:12px; align-items:flex-start; padding:10px 0;
       border-bottom:1px solid rgba(127,127,127,0.18); }
     .ledger-row:last-child { border-bottom:none; }
+    .ledger-row .badge { flex:0 0 auto; margin-top:2px; }
     .ledger-what { font-weight:600; font-size:0.92rem; }
-    .ledger-note { font-size:0.83rem; opacity:0.75; margin-top:2px; }
+    .ledger-note { font-size:0.83rem; opacity:0.75; margin-top:2px; line-height:1.4; }
     </style>
     """,
     unsafe_allow_html=True,
@@ -621,10 +625,12 @@ with tab_status:
         ("ok", "B/C/D downstream pipeline", "This team's live data proven end-to-end through build_machine_snapshot and build_full_cycle_snapshot_series"),
         ("pending", "BPM closed-orbit readback PVs", "Prospective -- staff confirmed this is not yet in the control system. A live-found candidate exists (RNG:DIAG:POS:R{sp}HM/VM{n}:POSITION) but isn't wired to a real fetch; the BPM tab previews the real output shape with test data instead"),
     ]
+    LEDGER_STATUS_LABELS = {"ok": "confirmed", "pending": "prospective", "warn": "blocked"}
     ledger_html = ""
     for status, what, note in ledger_items:
+        label = LEDGER_STATUS_LABELS.get(status, status)
         ledger_html += (
-            f'<div class="ledger-row"><span class="badge badge-{"ok" if status == "ok" else "pending"}">{status}</span>'
+            f'<div class="ledger-row"><span class="badge badge-{status}">{label}</span>'
             f'<div><div class="ledger-what">{what}</div><div class="ledger-note">{note}</div></div></div>'
         )
     st.markdown(ledger_html, unsafe_allow_html=True)
