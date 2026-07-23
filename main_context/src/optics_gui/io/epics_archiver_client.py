@@ -25,8 +25,19 @@ export):
   object: [{"appliance": ..., "connectionState": "true"/"false",
   "pvName": ..., "pvNameOnly": ..., "samplingPeriod": ...,
   "lastEvent": ..., ...}] -- the same per-PV record shape as a getAllPVs
-  dump. getPVStatus?pv=* was tested and hangs/times out -- it is not
-  built for bulk queries, /glob is.
+  dump.
+
+  CORRECTED (an earlier version of this comment was wrong): pv="*" here
+  does NOT time out -- it's just slow. Confirmed live with a real
+  timeout budget: /getPVStatus?pv=* returned all 40,890 real PVs in the
+  system in 37.3 seconds. The original "hangs/times out" conclusion came
+  from testing with only a ~15-20s timeout, which genuinely isn't long
+  enough -- it was a too-short-timeout artifact, not a real server
+  limitation. This is in fact the way to get the FULL PV catalog: /glob
+  is capped by the server at 500 results for a bare "*" (confirmed,
+  reproducible, not a timeout issue) and /getPVStatus is not -- the
+  tradeoff is /getPVStatus?pv=* takes ~40s and needs a generous timeout
+  explicitly passed in, not the 10s default used for single-PV checks.
 
 - /data returns one JSON object with three parallel columnar dicts,
   each keyed by stringified row index: {"secs": {"0": ..., "1": ...},
@@ -143,13 +154,16 @@ def archiver_list_available_times_dwtrim(signal, ioc="DWTRIM", base_url=DEFAULT_
 
 def archiver_get_pv_status(pv_name, base_url=DEFAULT_BASE_URL, timeout=10):
     """
-    Check whether a PV exists/is archived, via /getPVStatus.
+    Check whether a PV exists/is archived, via /getPVStatus. Also the
+    real way to fetch the FULL PV catalog: pv="*" returns every PV in
+    the system (confirmed live: 40,890 real PVs in 37.3s) -- unlike
+    /glob, which caps a bare "*" at 500 results. It's just slow, so pass
+    a generous timeout (60-90s+) explicitly when using it that way; the
+    default timeout=10 here is sized for the normal single-PV case.
 
-    Real response shape, observed live: a JSON array containing one
-    object (the same per-PV record shape as a getAllPVs/glob-style
-    dump) -- e.g. [{"pvName": ..., "connectionState": "true", ...}].
-    Do not pass pv="*" here -- tested live, that hangs/times out;
-    /glob is the bulk-listing endpoint, this one is single-PV only.
+    Real response shape, observed live: a JSON array of per-PV objects
+    -- e.g. [{"pvName": ..., "connectionState": "true", ...}] for one
+    PV, or 40,890 of them for pv="*".
     """
 
     response = requests.get(f"{base_url}/getPVStatus", params={"pv": pv_name}, timeout=timeout)

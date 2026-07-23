@@ -15,6 +15,7 @@ from .configs import (
 )
 from .epics_archiver_client import (
     archiver_fetch_value,
+    archiver_get_pv_status,
     archiver_list_available_times,
     archiver_list_available_times_dwtrim,
     archiver_list_pvs,
@@ -44,6 +45,7 @@ from .measurements import (
 __all__ = [
     "ArchivedRun",
     "archiver_fetch_value",
+    "archiver_get_pv_status",
     "archiver_list_available_times",
     "archiver_list_available_times_dwtrim",
     "archiver_list_pvs",

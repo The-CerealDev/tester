@@ -32,6 +32,7 @@ import streamlit as st
 
 from optics_gui.io import (
     archiver_fetch_value,
+    archiver_get_pv_status,
     archiver_list_available_times,
     archiver_list_available_times_dwtrim,
     archiver_list_pvs,
@@ -547,6 +548,36 @@ with tab_search:
                     reset_search_filters()
                     save_search_cache(wrapped)
                     st.success(f"Fetched {len(wrapped)} PVs live from the archiver.")
+                    st.rerun()
+
+        st.divider()
+        st.write("**Or fetch the ENTIRE PV catalog (~40k, ~40 seconds)**")
+        st.caption(
+            "Via /getPVStatus?pv=* -- confirmed live to return the full real catalog "
+            "(40,890 PVs in 37.3s when tested), unlike /glob's bare '*' which is capped at 500. "
+            "Slow, so be patient; this also gives real connectionState per PV (glob-based fetches "
+            "above don't have that field, so 'Connected only' defaults everything to true for them)."
+        )
+        if st.button("Fetch ALL PVs (slow)", type="primary"):
+            try:
+                with st.spinner("Fetching the full PV catalog via getPVStatus?pv=* -- this takes ~40 seconds, please wait..."):
+                    records = archiver_get_pv_status("*", base_url=base_url, timeout=90)
+            except requests.exceptions.RequestException as exc:
+                st.error(
+                    f"Couldn't reach the archiver at {base_url}: {exc}. "
+                    "This only works if you're actually on the ISIS network."
+                )
+            except ValueError as exc:
+                st.error(f"Archiver responded but not with valid JSON: {exc}")
+            else:
+                if not records:
+                    st.warning("Archiver returned no PVs.")
+                else:
+                    st.session_state.pv_records = records
+                    st.session_state.search_data_version += 1
+                    reset_search_filters()
+                    save_search_cache(records)
+                    st.success(f"Fetched {len(records)} PVs live from the archiver (full catalog).")
                     st.rerun()
 
     search_df = normalise_pv_records(st.session_state.pv_records)
