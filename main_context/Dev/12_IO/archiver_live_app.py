@@ -635,6 +635,13 @@ with tab_status:
         )
     st.markdown(ledger_html, unsafe_allow_html=True)
 
+    def function_reference_table(rows):
+        st.dataframe(
+            pd.DataFrame(rows, columns=["Function", "Parameter", "Meaning"]),
+            use_container_width=True,
+            hide_index=True,
+        )
+
     st.subheader("How the Orbit team uses this")
     st.code(
         """# in the Orbit team's Streamlit page -- host/port confirmed: athena.isis.rl.ac.uk:9506
@@ -646,8 +653,105 @@ settings, missing = get_corrector_settings(
 
 config = SnapshotConfig(
     cycle_time_ms=2.5,
+    lattice_folder=lattice_folder,
+    output_dir=output_dir,
     corrector_settings=settings,   # <- exactly what they already expect
 )
-snapshot = build_machine_snapshot(config)""",
+snapshot = build_machine_snapshot(config)
+orbit = snapshot.table("orbit")
+orbit_summary = snapshot.table("orbit_summary")""",
         language="python",
+    )
+    function_reference_table(
+        [
+            ("get_corrector_settings", "cycle_time_ms", "Point in the ~10ms ramp to fetch correctors for"),
+            ("get_corrector_settings", "fetch_value", "Callable reading one PV's value -- archiver_fetch_value"),
+            ("get_corrector_settings", "list_available_times", "Callable listing archived cycle times for one magnet"),
+            ("get_corrector_settings", "as_of (optional)", "Historical datetime; None reads the live/latest value"),
+            ("get_corrector_settings", "prefer (optional)", '"currents" or "kicks" -- which value type the result favours'),
+            ("SnapshotConfig", "cycle_time_ms", "The ramp point this config represents"),
+            ("SnapshotConfig", "lattice_folder", "Which MAD-X lattice to run"),
+            ("SnapshotConfig", "output_dir", "Required -- where this run's files are written"),
+            ("SnapshotConfig", "corrector_settings", "The SnapshotCorrectorSettings object from get_corrector_settings"),
+            ("build_machine_snapshot", "config", "The SnapshotConfig to run through real MAD-X"),
+            ("build_machine_snapshot", "returns", 'SnapshotResult -- use .table("orbit") / .table("orbit_summary")'),
+        ]
+    )
+
+    st.subheader("How the Tune / Working-Point team uses this")
+    st.code(
+        """# real path -- runs MAD-X per timepoint
+tune_row, missing = get_requested_tune(
+    cycle_time_ms=2.5,
+    fetch_value=archiver_fetch_value,
+    list_available_times_dwtrim=archiver_list_available_times_dwtrim,
+)
+
+series = build_full_cycle_snapshot_series(
+    cycle_times_ms=[0.0, 0.5, 1.0],
+    qx_values=[4.331, 4.331, 4.331],   # <- one get_requested_tune call per point
+    qy_values=[3.731, 3.731, 3.731],
+    base_config=SnapshotConfig(cycle_time_ms=0.0, lattice_folder=lattice_folder, run_envelope=False, run_aperture=False),
+    label="working_point_series",
+    output_dir=str(REPO_ROOT / "Dev" / "12_IO" / "student_runs" / "working_point_series"),
+)
+tune_programme = series.table("tune_programme")
+working_points = series.table("working_points")
+resonance_proximity = series.table("resonance_proximity")""",
+        language="python",
+    )
+    function_reference_table(
+        [
+            ("get_requested_tune", "cycle_time_ms", "Point in the ramp to read the tune setpoint for"),
+            ("get_requested_tune", "fetch_value / list_available_times_dwtrim", "Same archiver callables as every other function here"),
+            ("get_requested_tune", "returns", "(row, missing) -- row = {cycle_time_ms, set_qx, set_qy}"),
+            ("build_full_cycle_snapshot_series", "cycle_times_ms", "List of ramp points to evaluate"),
+            ("build_full_cycle_snapshot_series", "qx_values / qy_values", "Requested tune at each point -- one get_requested_tune call per entry"),
+            ("build_full_cycle_snapshot_series", "base_config (optional)", "Shared SnapshotConfig (must include cycle_time_ms, lattice_folder) applied to every point"),
+            ("build_full_cycle_snapshot_series", "output_dir", "Required -- where this series' run files are written"),
+            ("build_full_cycle_snapshot_series", "point_overrides (optional)", "Per-point dict overrides, e.g. harmonics from get_harmonic_tunes"),
+            ("build_full_cycle_snapshot_series", "returns", 'Series -- .table("tune_programme") / .table("working_points") / .table("resonance_proximity")'),
+            ("build_tune_programme_table (lightweight, no MAD-X)", "data, source", "Normalises a raw tune table (cycle_time_ms/set_qx/set_qy/predicted_qx/predicted_qy) into the canonical shape"),
+            ("build_working_point_table (lightweight)", "tune_programme_df", "Adds requested-vs-predicted-vs-matched delta columns, one row per point"),
+            ("generate_resonance_lines (lightweight)", "xlims, ylims, orders, periodicity", "Resonance-line segments for the tune diagram axes/orders shown"),
+            ("evaluate_resonance_proximity (lightweight)", "working_points, resonance_lines", "Nearest resonance line to each working point"),
+            ("make_tune_diagram_inputs (lightweight)", "tune_programme_df, xlims, ylims, orders", "Bundles all of the above into one dict ready for plot_tune_diagram_inputs()"),
+        ]
+    )
+
+    st.subheader("How the Envelope / Aperture team uses this")
+    st.code(
+        """config = SnapshotConfig(
+    cycle_time_ms=2.5,
+    lattice_folder=lattice_folder,
+    output_dir=output_dir,
+    run_envelope=True,   # default
+    run_aperture=True,   # default
+    envelope_inputs=EnvelopeInputs(
+        emit_x_pi_mm_mrad=300.0,
+        emit_y_pi_mm_mrad=300.0,
+        sigma_scale=3.0,
+        dp_over_p=0.002,
+    ),
+)
+result = build_machine_snapshot(config)
+envelope = result.table("envelope")
+envelope_summary = result.table("envelope_summary")
+aperture_aligned = result.table("aperture_aligned")
+aperture_summary = result.table("aperture_summary")""",
+        language="python",
+    )
+    function_reference_table(
+        [
+            ("EnvelopeInputs", "emit_x_pi_mm_mrad / emit_y_pi_mm_mrad", "Beam emittance per plane, accelerator 'pi mm mrad' convention (default 300.0 each)"),
+            ("EnvelopeInputs", "emittance_mode", '"geometric" or "normalised" (+ _rms variants); default "geometric"'),
+            ("EnvelopeInputs", "sigma_scale", "Envelope width in standard deviations (default 3.0)"),
+            ("EnvelopeInputs", "dp_over_p", "Momentum-spread contribution to the envelope (default 0.002)"),
+            ("SnapshotConfig", "output_dir", "Required -- where this run's files are written"),
+            ("SnapshotConfig", "run_envelope / run_aperture", "Both default True -- toggle each stage; run_aperture requires run_envelope"),
+            ("SnapshotConfig", "envelope_inputs", "The EnvelopeInputs object above"),
+            ("SnapshotConfig", "aperture_interval (optional)", "Sampling step in metres along the ring for MAD-X APERTURE (default 0.1)"),
+            ("build_machine_snapshot", "config", "The SnapshotConfig to run through real MAD-X"),
+            ("build_machine_snapshot", "returns", 'SnapshotResult -- .table("envelope") / .table("envelope_summary") / .table("aperture") / .table("aperture_aligned") / .table("aperture_summary")'),
+        ]
     )
