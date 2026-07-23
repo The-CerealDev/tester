@@ -436,6 +436,23 @@ with tab_search:
         st.caption(f"Cached at `{SEARCH_CACHE_PATH.name}` in this folder (gitignored) -- reloads automatically next time you run the app.")
 
         st.divider()
+        st.write("**Or upload a JSON file**")
+        uploaded_file = st.file_uploader("getAllPVs-style JSON file", type=["json"], key="pv_search_upload")
+        if uploaded_file is not None and st.button("Load uploaded file", type="primary"):
+            try:
+                records = json.loads(uploaded_file.getvalue().decode("utf-8"))
+                if not isinstance(records, list):
+                    raise ValueError("Expected a JSON array.")
+            except (json.JSONDecodeError, ValueError, UnicodeDecodeError) as exc:
+                st.error(f"Couldn't parse {uploaded_file.name} as a PV list: {exc}")
+            else:
+                st.session_state.pv_records = records
+                st.session_state.search_data_version += 1
+                save_search_cache(records)
+                st.success(f"Loaded {len(records)} PVs from {uploaded_file.name}.")
+                st.rerun()
+
+        st.divider()
         st.write("**Or fetch live from the archiver**")
         st.caption("Uses the archiver base URL set in the sidebar.")
         fetch_col1, fetch_col2 = st.columns([4, 2])
